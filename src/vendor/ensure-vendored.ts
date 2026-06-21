@@ -1,9 +1,15 @@
 import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { PactiaLockManifest } from "@pactia/pactiac";
-import { packageDirName } from "./package-dir-name.js";
+import { packageDirName } from "../domain/package-coordinate.js";
+import { packageSearchRoots } from "./cache-paths.js";
 
-const VENDOR_SUBDIR = ".pactia/packages";
+export class VendorError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "VendorError";
+  }
+}
 
 function isVendoredPackageDir(dir: string): boolean {
   return (
@@ -13,44 +19,21 @@ function isVendoredPackageDir(dir: string): boolean {
   );
 }
 
-function vendorSearchRoots(workspaceRoot: string): readonly string[] {
-  const roots: string[] = [];
-  const envRoot = process.env["PACTIA_VENDOR_ROOT"];
-  if (envRoot) {
-    roots.push(resolve(envRoot));
-  }
-
-  const monorepoCandidates = [
-    join(workspaceRoot, "..", "..", "pactiac", "test", "fixtures", "packages"),
-    join(workspaceRoot, "..", "pactiac", "test", "fixtures", "packages"),
-  ];
-  for (const candidate of monorepoCandidates) {
-    if (existsSync(candidate)) {
-      roots.push(resolve(candidate));
-    }
-  }
-
-  return roots;
-}
-
-export class VendorError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "VendorError";
-  }
-}
-
-/** Copy locked packages into workspace `.pactia/packages/` when missing (Cargo vendor-style). */
+/** Copy locked packages into workspace `.pactia/packages/` when missing. */
 export function ensureVendoredPackages(
   workspaceRoot: string,
   lock: PactiaLockManifest,
 ): readonly string[] {
+  if (lock.packages.length === 0) {
+    return [];
+  }
+
   const root = resolve(workspaceRoot);
-  const vendorDir = join(root, VENDOR_SUBDIR);
+  const vendorDir = join(root, ".pactia", "packages");
   mkdirSync(vendorDir, { recursive: true });
 
   const copied: string[] = [];
-  const searchRoots = vendorSearchRoots(root);
+  const searchRoots = packageSearchRoots(root);
 
   for (const entry of lock.packages) {
     const dirName = packageDirName(entry.name, entry.version);
@@ -71,8 +54,8 @@ export function ensureVendoredPackages(
 
     if (!sourceDir) {
       throw new VendorError(
-        `Locked package '${entry.name}@${entry.version}' is not vendored under ${vendorDir}. ` +
-          `Set PACTIA_VENDOR_ROOT to a directory containing ${dirName}, or run pactia fetch (planned).`,
+        `Locked package '${entry.name}@${entry.version}' is not available under ${vendorDir}. ` +
+          `Run pactia fetch or set PACTIA_VENDOR_ROOT.`,
       );
     }
 

@@ -7,13 +7,13 @@ import { describe, it } from "node:test";
 import { parsePactiaLock } from "@pactia/pactiac";
 import { runBuild } from "./commands/build.js";
 import { ensureVendoredPackages } from "./vendor/ensure-vendored.js";
-import { packageDirName } from "./vendor/package-dir-name.js";
+import { packageDirName } from "./domain/package-coordinate.js";
 
 const packageRoot = resolve(import.meta.dirname, "..");
 const pactiacRoot = resolve(packageRoot, "..", "pactiac");
 const pactiacPackages = join(pactiacRoot, "test", "fixtures", "packages");
 const marketplaceRoot = resolve(packageRoot, "..", "examples", "marketplace");
-const websiteRoot = resolve(packageRoot, "..", "examples", "pactia-lang-website");
+const websiteRoot = join(pactiacRoot, "test", "fixtures", "workspace", "website");
 
 describe("runBuild", () => {
   it("builds marketplace example when vendor packages are available", () => {
