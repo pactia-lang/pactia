@@ -3,5 +3,5 @@ name = "example-product"
 version = "0.1.0"
 
 [dependencies]
-# "@pactia/rust-anb" = "^1.0"
+# "@pactia/rust-stack" = "^1.0"
 # "@pactia/kernel" = "^1.0"
