@@ -4,11 +4,24 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PACTIA_VENDOR_ROOT: ${{ github.workspace }}/pactiac/test/fixtures/packages
 
 jobs:
   test:
+    name: test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         node-version: [20.x, 22.x]
     steps:
@@ -25,12 +38,66 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
-          cache-dependency-path: pactia/package-lock.json
+          cache-dependency-path: |
+            pactia/package-lock.json
+            pactiac/package-lock.json
 
       - name: Build pactiac
-        run: npm ci && npm run build
         working-directory: pactiac
+        run: npm ci && npm run build
 
       - name: Test pactia
-        run: npm ci && npm test
         working-directory: pactia
+        run: npm ci && npm test
+
+  integration:
+    name: integration
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pactia
+
+      - uses: actions/checkout@v4
+        with:
+          repository: pactia-lang/pactiac
+          path: pactiac
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: |
+            pactia/package-lock.json
+            pactiac/package-lock.json
+
+      - name: Build toolchain
+        run: |
+          npm ci && npm run build
+        working-directory: pactiac
+
+      - name: Build pactia CLI
+        working-directory: pactia
+        run: npm ci && npm run build
+
+      - name: pactia build website fixture
+        working-directory: pactia
+        run: node dist/cli.js build -C ../pactiac/test/fixtures/workspace/website -o /tmp/website-out
+
+      - name: pactia init and build
+        working-directory: pactia
+        run: |
+          DEMO=$(mktemp -d)
+          node dist/cli.js init "$DEMO/demo" --name DemoProduct --stack rust-stack
+          node dist/cli.js build -C "$DEMO/demo" -o "$DEMO/out"
+          test -f "$DEMO/out/input/product.json"
+
+      - name: pactia add dependency
+        working-directory: pactia
+        run: |
+          DEMO=$(mktemp -d)
+          node dist/cli.js init "$DEMO/demo" --stack rust-stack
+          node dist/cli.js add html-css-js -C "$DEMO/demo"
+          grep -q '"@pactia/html-css-js"' "$DEMO/demo/pactia.toml"
+          test -f "$DEMO/demo/pactia.lock"
