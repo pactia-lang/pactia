@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { compileWorkspace, parsePactiaLock } from "@pactia/pactiac";
 import { writeCompileOutput } from "../io/write-output.js";
+import { resolveWorkspaceLock } from "../resolve/lock-resolver.js";
 import { ensureVendoredPackages, VendorError } from "../vendor/ensure-vendored.js";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
 
@@ -15,6 +16,7 @@ export interface BuildResult {
   readonly outputDir: string;
   readonly filesWritten: readonly string[];
   readonly vendoredPackages: readonly string[];
+  readonly lockWritten: boolean;
 }
 
 export class BuildError extends Error {
@@ -36,17 +38,27 @@ export function runBuild(options: BuildOptions = {}): BuildResult {
     throw error instanceof WorkspaceError ? error : new BuildError(String(error));
   }
 
-  const lockPath = join(workspaceRoot, "pactia.lock");
-  const lock = parsePactiaLock(readFileSync(lockPath, "utf8"));
+  const resolved = resolveWorkspaceLock(workspaceRoot);
 
   let vendoredPackages: readonly string[] = [];
-  try {
-    vendoredPackages = ensureVendoredPackages(workspaceRoot, lock);
-  } catch (error) {
-    if (error instanceof VendorError) {
-      throw new BuildError(error.message);
+  if (resolved.lock.packages.length > 0) {
+    try {
+      vendoredPackages = ensureVendoredPackages(workspaceRoot, resolved.lock);
+    } catch (error) {
+      if (error instanceof VendorError) {
+        throw new BuildError(error.message);
+      }
+      throw error;
     }
-    throw error;
+  }
+
+  const lockPath = join(workspaceRoot, "pactia.lock");
+  if (resolved.lock.packages.length > 0 && !existsSync(lockPath)) {
+    throw new BuildError("pactia.lock is missing after resolution");
+  }
+
+  if (resolved.lock.packages.length > 0) {
+    parsePactiaLock(readFileSync(lockPath, "utf8"));
   }
 
   const compileResult = compileWorkspace(workspaceRoot);
@@ -58,5 +70,11 @@ export function runBuild(options: BuildOptions = {}): BuildResult {
   const outputDir = resolve(workspaceRoot, options.outputDir ?? DEFAULT_OUTPUT_DIR);
   const filesWritten = writeCompileOutput(compileResult.files, outputDir);
 
-  return { workspaceRoot, outputDir, filesWritten, vendoredPackages };
+  return {
+    workspaceRoot,
+    outputDir,
+    filesWritten,
+    vendoredPackages,
+    lockWritten: resolved.written,
+  };
 }
