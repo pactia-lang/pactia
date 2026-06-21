@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$repo_root"
+
+if [[ ! -d ../pactiac/dist ]]; then
+  echo "pre-commit: building pactiac (../pactiac) for file: dependency"
+  (cd ../pactiac && npm run build)
+fi
+
+npm test

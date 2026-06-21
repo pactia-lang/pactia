@@ -1,0 +1,31 @@
+{
+  "name": "@pactia/pactia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pactia package manager — resolve, build, test, publish",
+  "type": "module",
+  "bin": {
+    "pactia": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --import tsx --test $(find src -name '*.test.ts')",
+    "hooks:install": "bash scripts/install-hooks.sh"
+  },
+  "dependencies": {
+    "@pactia/pactiac": "file:../pactiac"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pactia-lang/pactia.git"
+  }
+}

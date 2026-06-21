@@ -1,0 +1,48 @@
+name: Bug report
+description: Resolve, vendor, build, or CLI defect
+title: "[bug]: "
+labels:
+  - bug
+body:
+  - type: input
+    id: pactia_version
+    attributes:
+      label: pactia version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: pactiac_version
+    attributes:
+      label: pactiac version
+      description: Compiler version paired with this package-manager release.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: workspace
+    attributes:
+      label: Minimal workspace layout
+      description: pactia.toml, pactia.lock snippet, and product.pactia excerpt that reproduces the issue.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command run
+      placeholder: pactia build -C ./my-product
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual output
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected output
+    validations:
+      required: true
