@@ -32,15 +32,15 @@ version = "0.1.0"
 
 [dependencies]
 "@pactia/kernel" = "^1.0"
-"@pactia/rust-anb" = "^1.0"
+"@pactia/rust-stack" = "^1.0"
 ```
 
-Stack binding is in source (`#rust_anb` in `product.pactia`), not in TOML.
+Stack binding is in source (`#rust-stack` in `product.pactia`), not in TOML.
 
 ## Library packages (crates.io equivalent)
 
 ```
-@pactia/rust-anb/
+@pactia/rust-stack/
   pactia.toml           # [package] name, version, kind
   index.pactia          # export defs — like lib.rs
 ```

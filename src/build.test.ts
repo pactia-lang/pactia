@@ -13,6 +13,7 @@ const packageRoot = resolve(import.meta.dirname, "..");
 const pactiacRoot = resolve(packageRoot, "..", "pactiac");
 const pactiacPackages = join(pactiacRoot, "test", "fixtures", "packages");
 const marketplaceRoot = resolve(packageRoot, "..", "examples", "marketplace");
+const websiteRoot = resolve(packageRoot, "..", "examples", "pactia-lang-website");
 
 describe("runBuild", () => {
   it("builds marketplace example when vendor packages are available", () => {
@@ -34,6 +35,30 @@ describe("runBuild", () => {
         product: { name?: string };
       };
       assert.equal(product.product.name, "Marketplace");
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+
+  it("builds pactia-lang-website example when vendor packages are available", () => {
+    if (!existsSync(websiteRoot) || !existsSync(pactiacPackages)) {
+      return;
+    }
+
+    const outputDir = mkdtempSync(join(tmpdir(), "pactia-website-build-"));
+    try {
+      const result = runBuild({
+        workspaceRoot: websiteRoot,
+        outputDir,
+      });
+
+      assert.equal(result.workspaceRoot, resolve(websiteRoot));
+      assert.ok(result.filesWritten.includes("input/product.json"));
+      assert.ok(existsSync(join(outputDir, "input/modules/marketing/services/site.service.json")));
+      const product = JSON.parse(readFileSync(join(outputDir, "input/product.json"), "utf8")) as {
+        product: { name?: string };
+      };
+      assert.equal(product.product.name, "PactiaLangWebsite");
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
     }
