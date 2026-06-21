@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { describe, it } from "node:test";
 import { parsePactiaLock } from "@pactia/pactiac";
 import { runBuild } from "./commands/build.js";
+import { runTest } from "./commands/test.js";
 import { ensureVendoredPackages } from "./vendor/ensure-vendored.js";
 import { packageDirName } from "./domain/package-coordinate.js";
 
@@ -14,6 +15,7 @@ const pactiacRoot = resolve(packageRoot, "..", "pactiac");
 const pactiacPackages = join(pactiacRoot, "test", "fixtures", "packages");
 const marketplaceRoot = resolve(packageRoot, "..", "examples", "marketplace");
 const websiteRoot = join(pactiacRoot, "test", "fixtures", "workspace", "website");
+const relayRoot = join(pactiacRoot, "test", "fixtures", "workspace", "relay");
 
 describe("runBuild", () => {
   it("builds marketplace example when vendor packages are available", () => {
@@ -106,6 +108,48 @@ describe("runBuild", () => {
   });
 });
 
+describe("runTest", () => {
+  it("validates @test scenarios in relay workspace", () => {
+    if (!existsSync(relayRoot) || !existsSync(pactiacPackages)) {
+      return;
+    }
+
+    const outputDir = mkdtempSync(join(tmpdir(), "pactia-relay-test-"));
+    try {
+      const result = runTest({
+        workspaceRoot: relayRoot,
+        outputDir,
+      });
+
+      assert.equal(result.summary.total, 3);
+      assert.equal(result.summary.failed, 0);
+      assert.equal(result.summary.passed, 3);
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+
+  it("validates @test scenarios in website workspace", () => {
+    if (!existsSync(websiteRoot) || !existsSync(pactiacPackages)) {
+      return;
+    }
+
+    const outputDir = mkdtempSync(join(tmpdir(), "pactia-website-test-"));
+    try {
+      const result = runTest({
+        workspaceRoot: websiteRoot,
+        outputDir,
+      });
+
+      assert.equal(result.summary.total, 3);
+      assert.equal(result.summary.failed, 0);
+      assert.equal(result.summary.passed, 3);
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("pactia cli", () => {
   it("runs build subcommand on marketplace", () => {
     if (!existsSync(marketplaceRoot) || !existsSync(pactiacPackages)) {
@@ -124,6 +168,28 @@ describe("pactia cli", () => {
       assert.equal(result.status, 0, result.stderr || result.stdout);
       assert.match(result.stdout, /wrote input\/product\.json/);
       assert.match(result.stdout, /Finished `build`/);
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+
+  it("runs test subcommand on relay workspace", () => {
+    if (!existsSync(relayRoot) || !existsSync(pactiacPackages)) {
+      return;
+    }
+
+    const cliPath = resolve(packageRoot, "dist/cli.js");
+    const outputDir = mkdtempSync(join(tmpdir(), "pactia-cli-test-"));
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [cliPath, "test", "-C", relayRoot, "-o", outputDir],
+        { encoding: "utf8" },
+      );
+
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.match(result.stdout, /ok\s+OrderService ::/);
+      assert.match(result.stdout, /3 scenario\(s\) passed/);
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
     }

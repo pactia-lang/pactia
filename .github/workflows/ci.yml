@@ -85,6 +85,12 @@ jobs:
         working-directory: pactia
         run: node dist/cli.js build -C ../pactiac/test/fixtures/workspace/website -o /tmp/website-out
 
+      - name: pactia test relay and website fixtures
+        working-directory: pactia
+        run: |
+          node dist/cli.js test -C ../pactiac/test/fixtures/workspace/relay -o /tmp/relay-test-out
+          node dist/cli.js test -C ../pactiac/test/fixtures/workspace/website -o /tmp/website-test-out
+
       - name: pactia init and build
         working-directory: pactia
         run: |
