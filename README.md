@@ -103,6 +103,30 @@ Canonical example: [marketplace](https://github.com/pactia-lang/examples/tree/ma
 
 No generated JSON manifest. Publish ships `pactia.toml + index.pactia`.
 
+## Native binary (no Node required)
+
+Build a standalone `pactia` executable with [Bun](https://bun.sh) compile. The binary **bundles pactiac** at build time (sibling `../pactiac` checkout required, same as CI).
+
+```bash
+cd ../pactiac && npm ci && npm run build
+cd ../pactia && npm ci
+bun run build:bin:linux-x64          # one platform
+bun run build:bin                    # all platforms (release)
+bun run test:bin                     # build + smoke (website + init/build)
+./dist/pactia-linux-x64 build -C ./my-product
+```
+
+Release assets (`pactia-linux-x64`, `pactia-darwin-arm64`, …) are published on version tags via `.github/workflows/release.yml`.
+
+Install from GitHub Releases:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pactia-lang/pactia/main/scripts/install-pactia.sh | bash
+# or: ./scripts/install-pactia.sh v0.1.0
+```
+
+For development and programmatic use, `npm run build` → `dist/cli.js` remains available.
+
 ## Development
 
 Requires a sibling [pactiac](https://github.com/pactia-lang/pactiac) checkout (`../pactiac`) — same layout as CI.
@@ -125,8 +149,10 @@ pactia/
     workspace/        find pactia.toml + product.pactia
   scripts/
     install-hooks.sh
+    install-pactia.sh
+    smoke-binary.sh
   .githooks/          pre-commit (test), pre-push (test)
-  .github/workflows/  CI on Node 20 and 22
+  .github/workflows/  CI on Node 20 and 22; release on tags
 ```
 
 ## License

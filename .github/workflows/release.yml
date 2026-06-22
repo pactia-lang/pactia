@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build native binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pactia
+
+      - uses: actions/checkout@v4
+        with:
+          repository: pactia-lang/pactiac
+          path: pactiac
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: |
+            pactia/package-lock.json
+            pactiac/package-lock.json
+
+      - name: Build pactiac library
+        working-directory: pactiac
+        run: npm ci && npm run build
+
+      - name: Install pactia dependencies
+        working-directory: pactia
+        run: npm ci
+
+      - name: Build all platform binaries
+        working-directory: pactia
+        run: bun run build:bin
+
+      - name: Smoke test linux x64 binary
+        working-directory: pactia
+        env:
+          PACTIAC_ROOT: ${{ github.workspace }}/pactiac
+          PACTIA_VENDOR_ROOT: ${{ github.workspace }}/pactiac/test/fixtures/packages
+        run: bash scripts/smoke-binary.sh dist/pactia-linux-x64
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pactia/dist/pactia-linux-x64
+            pactia/dist/pactia-linux-arm64
+            pactia/dist/pactia-darwin-arm64
+            pactia/dist/pactia-darwin-x64
+            pactia/dist/pactia-windows-x64.exe
