@@ -125,13 +125,7 @@ curl -fsSL https://raw.githubusercontent.com/pactia-lang/pactia/main/scripts/ins
 ./scripts/install-pactia.sh v0.1.0
 ```
 
-**You do not need a separate `pactiac` install** for `pactia build` — the compiler is embedded in the `pactia` binary. Install `pactiac` only if you want the standalone `pactiac compile` command:
-
-```bash
-./scripts/install-pactia.sh --with-pactiac
-# or: WITH_PACTIAC=1 curl -fsSL .../install-pactia.sh | bash
-# optional: PACTIAC_VERSION=v0.1.0 when pactiac tag differs from pactia
-```
+The `pactia` binary includes the compiler — `pactia build` works out of the box. For the compiler CLI only, see [pactiac](https://github.com/pactia-lang/pactiac).
 
 For development and programmatic use, `npm run build` → `dist/cli.js` remains available.
 
