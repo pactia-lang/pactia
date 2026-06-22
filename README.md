@@ -116,14 +116,28 @@ bun run test:bin                     # build + smoke (website + init/build)
 ./dist/pactia-linux-x64 build -C ./my-product
 ```
 
-Release assets (`pactia-linux-x64`, `pactia-darwin-arm64`, …) are published on version tags via `.github/workflows/release.yml`.
+Release assets (`pactia-linux-x64`, `pactia-darwin-arm64`, …) are published on [GitHub Releases](https://github.com/pactia-lang/pactia/releases) when you push a version tag (`v*`).
 
-Install from GitHub Releases:
+### Linux and macOS
+
+The install script picks the right asset (Intel vs Apple Silicon on Mac):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pactia-lang/pactia/main/scripts/install-pactia.sh | bash
 ./scripts/install-pactia.sh v0.1.0
 ```
+
+Installs to `~/.local/bin/pactia`. Ensure that directory is on your `PATH` (e.g. in `~/.zshrc` on macOS).
+
+### Windows
+
+PowerShell (installs to `%USERPROFILE%\.local\bin\pactia.exe` and updates user `PATH`):
+
+```powershell
+irm https://raw.githubusercontent.com/pactia-lang/pactia/main/scripts/install-pactia.ps1 | iex
+```
+
+Or download `pactia-windows-x64.exe` from [Releases](https://github.com/pactia-lang/pactia/releases), rename to `pactia.exe`, and place it on your `PATH`.
 
 The `pactia` binary includes the compiler — `pactia build` works out of the box. For the compiler CLI only, see [pactiac](https://github.com/pactia-lang/pactiac).
 
@@ -152,6 +166,7 @@ pactia/
   scripts/
     install-hooks.sh
     install-pactia.sh
+    install-pactia.ps1
     smoke-binary.sh
   .githooks/          pre-commit (test), pre-push (test)
   .github/workflows/  CI on Node 20 and 22; release on tags

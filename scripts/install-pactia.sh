@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Install pactia from GitHub Releases.
-# Usage: curl -fsSL https://raw.githubusercontent.com/pactia-lang/pactia/main/scripts/install-pactia.sh | bash
-#    or: ./scripts/install-pactia.sh [version]
+# Install pactia from GitHub Releases (Linux and macOS).
+# Picks linux-x64, darwin-arm64 (Apple Silicon), or darwin-x64 (Intel) automatically.
+#
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/pactia-lang/pactia/main/scripts/install-pactia.sh | bash
+#   ./scripts/install-pactia.sh [version]
 set -euo pipefail
 
 repo="pactia-lang/pactia"
