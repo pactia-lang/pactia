@@ -9,7 +9,7 @@ pactia init <dir> [--name <ProductName>] [--stack rust-stack|html-css-js]
 pactia add <@scope/name> [range] [-C <workspace-dir>]
 pactia fetch [-C <workspace-dir>]
 pactia build [-C <workspace-dir>] [-o <output-dir>]   # default output: out/
-pactia test  [-C <workspace-dir>]                     # compile workspace (acceptance harness TBD)
+pactia test  [-C <workspace-dir>]                     # build + validate @test scenarios in service IR
 ```
 
 `pactia build` and `pactia fetch` resolve semver ranges, write `pactia.lock`, and vendor packages into `.pactia/packages/`. Set `PACTIA_VENDOR_ROOT` for local package indexes during development.
