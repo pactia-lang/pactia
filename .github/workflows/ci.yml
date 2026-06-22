@@ -101,3 +101,48 @@ jobs:
           node dist/cli.js add html-css-js -C "$DEMO/demo"
           grep -q '"@pactia/html-css-js"' "$DEMO/demo/pactia.toml"
           test -f "$DEMO/demo/pactia.lock"
+
+  binary-smoke:
+    name: native binary smoke
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pactia
+
+      - uses: actions/checkout@v4
+        with:
+          repository: pactia-lang/pactiac
+          path: pactiac
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: |
+            pactia/package-lock.json
+            pactiac/package-lock.json
+
+      - name: Build pactiac
+        working-directory: pactiac
+        run: npm ci && npm run build
+
+      - name: Install pactia dependencies
+        working-directory: pactia
+        run: npm ci
+
+      - name: Build linux x64 binary
+        working-directory: pactia
+        run: bun run build:bin:linux-x64
+
+      - name: Smoke test binary
+        working-directory: pactia
+        env:
+          PACTIAC_ROOT: ${{ github.workspace }}/pactiac
+          PACTIA_VENDOR_ROOT: ${{ github.workspace }}/pactiac/test/fixtures/packages
+        run: bash scripts/smoke-binary.sh dist/pactia-linux-x64
