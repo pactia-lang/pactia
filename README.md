@@ -1,6 +1,6 @@
 # pactia
 
-Package manager for Pactia — like **Cargo** for Rust. Resolves dependencies, vendors packages, runs builds and tests. Invokes [pactiac](https://github.com/pactia-lang/pactiac) (the compiler) under the hood.
+Package manager for Pactia — like **Cargo** for Rust. Resolves dependencies, vendors packages, and runs builds. Invokes [pactiac](https://github.com/pactia-lang/pactiac) (the compiler) under the hood.
 
 ## Commands
 
@@ -9,7 +9,6 @@ pactia init <dir> [--name <ProductName>] [--stack rust-stack|html-css-js]
 pactia add <@scope/name> [range] [-C <workspace-dir>]
 pactia fetch [-C <workspace-dir>]
 pactia build [-C <workspace-dir>] [-o <output-dir>]   # default output: out/
-pactia test  [-C <workspace-dir>]                     # build + validate @test scenarios in service IR
 ```
 
 `pactia build` and `pactia fetch` resolve semver ranges, write `pactia.lock`, and vendor packages into `.pactia/packages/`. Set `PACTIA_VENDOR_ROOT` for local package indexes during development.
@@ -69,7 +68,7 @@ npm test
 pactia/
   src/
     cli.ts
-    commands/         build, test
+    commands/         init, add, fetch, build
     vendor/           lock → .pactia/packages/
     workspace/        find pactia.toml + product.pactia
   scripts/

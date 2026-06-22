@@ -4,10 +4,8 @@ import { runAdd } from "./commands/add.js";
 import { runBuild, BuildError } from "./commands/build.js";
 import { runFetch, FetchError } from "./commands/fetch.js";
 import { runInit, InitError, parseProductStack } from "./commands/init.js";
-import { runTest } from "./commands/test.js";
 import { ResolveError } from "./domain/resolve-error.js";
 import { WorkspaceError } from "./workspace/find-workspace.js";
-import { TestError, formatTestReport } from "./commands/test.js";
 
 interface CliArgs {
   readonly command: PactiaCommand | undefined;
@@ -83,8 +81,7 @@ function printUsage(): void {
       "  pactia init <dir> [--name <ProductName>] [--stack rust-stack|html-css-js]\n" +
       "  pactia add <@scope/name> [range] [-C <workspace-dir>]\n" +
       "  pactia fetch [-C <workspace-dir>]\n" +
-      "  pactia build [-C <workspace-dir>] [-o <output-dir>]\n" +
-      "  pactia test  [-C <workspace-dir>] [-o <output-dir>]\n",
+      "  pactia build [-C <workspace-dir>] [-o <output-dir>]\n",
   );
 }
 
@@ -94,8 +91,7 @@ function handleError(error: unknown): void {
     error instanceof WorkspaceError ||
     error instanceof ResolveError ||
     error instanceof InitError ||
-    error instanceof FetchError ||
-    error instanceof TestError
+    error instanceof FetchError
   ) {
     process.stderr.write(`error: ${error.message}\n`);
     process.exit(1);
@@ -173,30 +169,6 @@ function runCommand(args: CliArgs): void {
         process.stdout.write(`wrote ${relPath}\n`);
       }
       process.stdout.write(`Finished \`${args.command}\` at ${build.outputDir}\n`);
-      return;
-    }
-    case PactiaCommand.Test: {
-      const options = {
-        workspaceRoot: args.workspaceRoot,
-        outputDir: args.outputDir,
-      };
-      const result = runTest(options);
-
-      if (result.lockWritten) {
-        process.stdout.write("updated pactia.lock\n");
-      }
-      if (result.vendoredPackages.length > 0) {
-        process.stdout.write(`vendored ${result.vendoredPackages.join(", ")}\n`);
-      }
-      for (const relPath of result.filesWritten) {
-        process.stdout.write(`wrote ${relPath}\n`);
-      }
-      for (const line of formatTestReport(result.summary)) {
-        process.stdout.write(`${line}\n`);
-      }
-      process.stdout.write(
-        `${result.summary.passed} scenario(s) passed at ${result.outputDir}\n`,
-      );
       return;
     }
     default:

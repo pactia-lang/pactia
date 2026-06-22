@@ -4,5 +4,4 @@ export enum PactiaCommand {
   Add = "add",
   Fetch = "fetch",
   Build = "build",
-  Test = "test",
 }
