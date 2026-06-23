@@ -7,6 +7,7 @@ import { runAdd } from "./commands/add.js";
 import { runBuild, BuildError } from "./commands/build.js";
 import { runInstall, InstallError } from "./commands/install.js";
 import { runInit, InitError } from "./commands/init.js";
+import { runUpdate, UpdateError } from "./commands/update.js";
 import { ResolveError } from "./domain/resolve-error.js";
 import { WorkspaceError } from "./workspace/find-workspace.js";
 
@@ -18,6 +19,7 @@ interface CliArgs {
   readonly initName: string | undefined;
   readonly addCoordinate: string | undefined;
   readonly addRange: string | undefined;
+  readonly updateCoordinate: string | undefined;
 }
 
 function cliVersion(): string {
@@ -46,6 +48,7 @@ function parseArgs(argv: string[]): CliArgs {
   let initName: string | undefined;
   let addCoordinate: string | undefined;
   let addRange: string | undefined;
+  let updateCoordinate: string | undefined;
 
   const positionals: string[] = [];
 
@@ -72,6 +75,9 @@ function parseArgs(argv: string[]): CliArgs {
     addCoordinate = positionals[0];
     addRange = positionals[1];
   }
+  if (commandRaw === PactiaCommand.Update) {
+    updateCoordinate = positionals[0];
+  }
 
   return {
     command: parseCommand(commandRaw),
@@ -81,6 +87,7 @@ function parseArgs(argv: string[]): CliArgs {
     initName,
     addCoordinate,
     addRange,
+    updateCoordinate,
   };
 }
 
@@ -90,6 +97,7 @@ function printUsage(): void {
       "  pactia init <dir> [--name <ProductName>]\n" +
       "  pactia add <@scope/name> [range] [-C <workspace-dir>]\n" +
       "  pactia install [-C <workspace-dir>]\n" +
+      "  pactia update [<@scope/name>] [-C <workspace-dir>]\n" +
       "  pactia build [-C <workspace-dir>] [-o <output-dir>]\n" +
       "\n" +
       "Global options: --help, -h, --version, -v\n",
@@ -102,7 +110,8 @@ function handleError(error: unknown): void {
     error instanceof WorkspaceError ||
     error instanceof ResolveError ||
     error instanceof InitError ||
-    error instanceof InstallError
+    error instanceof InstallError ||
+    error instanceof UpdateError
   ) {
     process.stderr.write(`error: ${error.message}\n`);
     process.exit(1);
@@ -153,9 +162,6 @@ async function runCommand(args: CliArgs): Promise<void> {
     }
     case PactiaCommand.Install: {
       const result = await runInstall({ workspaceRoot: args.workspaceRoot });
-      if (result.lockWritten) {
-        process.stdout.write(`updated pactia.lock\n`);
-      }
       if (result.installed.length > 0) {
         process.stdout.write(`installed ${result.installed.join(", ")}\n`);
       }
@@ -165,6 +171,28 @@ async function runCommand(args: CliArgs): Promise<void> {
       process.stdout.write(`Finished install at ${result.workspaceRoot}\n`);
       return;
     }
+    case PactiaCommand.Update: {
+      const result = await runUpdate({
+        workspaceRoot: args.workspaceRoot,
+        coordinate: args.updateCoordinate,
+      });
+      if (result.lockWritten) {
+        process.stdout.write(`updated pactia.lock\n`);
+      }
+      if (result.installed.length > 0) {
+        process.stdout.write(`installed ${result.installed.join(", ")}\n`);
+      }
+      if (result.vendoredPackages.length > 0) {
+        process.stdout.write(`vendored ${result.vendoredPackages.join(", ")}\n`);
+      }
+      if (result.coordinate) {
+        process.stdout.write(`updated ${result.coordinate}\n`);
+      } else {
+        process.stdout.write(`updated all dependencies\n`);
+      }
+      process.stdout.write(`Finished update at ${result.workspaceRoot}\n`);
+      return;
+    }
     case PactiaCommand.Build: {
       const options = {
         workspaceRoot: args.workspaceRoot,
@@ -172,9 +200,6 @@ async function runCommand(args: CliArgs): Promise<void> {
       };
       const build = await runBuild(options);
 
-      if (build.lockWritten) {
-        process.stdout.write("updated pactia.lock\n");
-      }
       if (build.vendoredPackages.length > 0) {
         process.stdout.write(`vendored ${build.vendoredPackages.join(", ")}\n`);
       }

@@ -6,6 +6,9 @@ export enum ResolveErrorCode {
   GitFetchFailed = "GIT_FETCH_FAILED",
   HttpFetchFailed = "HTTP_FETCH_FAILED",
   ManifestMissing = "MANIFEST_MISSING",
+  LockMissing = "LOCK_MISSING",
+  LockStale = "LOCK_STALE",
+  LockDigestMismatch = "LOCK_DIGEST_MISMATCH",
 }
 
 export class ResolveError extends Error {

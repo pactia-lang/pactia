@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { resolveWorkspaceLock } from "../resolve/lock-resolver.js";
+import { installLockedPackages } from "../resolve/lock-resolver.js";
 import { ensureVendoredPackages, VendorError } from "../vendor/ensure-vendored.js";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
 
@@ -31,7 +31,7 @@ export async function installWorkspacePackages(
       : new InstallWorkspaceError(String(error));
   }
 
-  const resolved = await resolveWorkspaceLock(workspaceRoot);
+  const resolved = await installLockedPackages(workspaceRoot);
 
   let vendoredPackages: readonly string[] = [];
   try {
