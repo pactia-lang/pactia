@@ -121,11 +121,15 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       const options = {
         workspaceRoot: args.workspaceRoot,
         outputDir: args.outputDir,
+        bundleContext: args.bundleContext,
       };
       const build = await runBuild(options);
 
       if (build.vendoredPackages.length > 0) {
         process.stdout.write(`vendored ${build.vendoredPackages.join(", ")}\n`);
+      }
+      for (const warning of build.contextWarnings) {
+        process.stderr.write(`warning: ${warning}\n`);
       }
       for (const relPath of build.filesWritten) {
         process.stdout.write(`wrote ${relPath}\n`);

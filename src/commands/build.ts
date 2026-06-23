@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { compileWorkspace, parsePactiaLock } from "@pactia/pactiac";
+import { buildContextArtifacts, ContextBuildError } from "../context/build-context-artifacts.js";
 import { writeCompileOutput } from "../io/write-output.js";
 import { installLockedPackages } from "../resolve/lock-resolver.js";
 import { ensureVendoredPackages, VendorError } from "../vendor/ensure-vendored.js";
@@ -9,6 +10,7 @@ import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.j
 export interface BuildOptions {
   readonly workspaceRoot?: string;
   readonly outputDir?: string;
+  readonly bundleContext?: boolean;
 }
 
 export interface BuildResult {
@@ -17,6 +19,8 @@ export interface BuildResult {
   readonly filesWritten: readonly string[];
   readonly vendoredPackages: readonly string[];
   readonly lockWritten: boolean;
+  readonly contextIndexPath?: string;
+  readonly contextWarnings: readonly string[];
 }
 
 export class BuildError extends Error {
@@ -68,7 +72,29 @@ export async function runBuild(options: BuildOptions = {}): Promise<BuildResult>
   }
 
   const outputDir = resolve(workspaceRoot, options.outputDir ?? DEFAULT_OUTPUT_DIR);
-  const filesWritten = writeCompileOutput(compileResult.files, outputDir);
+  let filesWritten = [...writeCompileOutput(compileResult.files, outputDir)];
+
+  let contextIndexPath: string | undefined;
+  const contextWarnings: string[] = [];
+  const hasContextIr = [...compileResult.files.values()].some((content) => content.includes('"context"'));
+  if (hasContextIr) {
+    try {
+      const contextResult = buildContextArtifacts({
+        workspaceRoot,
+        outputDir,
+        lock: resolved.lock,
+        bundleContext: options.bundleContext ?? true,
+      });
+      contextIndexPath = contextResult.indexPath;
+      contextWarnings.push(...contextResult.warnings);
+      filesWritten.push(contextResult.indexPath, ...contextResult.bundledFiles);
+    } catch (error) {
+      if (error instanceof ContextBuildError) {
+        throw new BuildError(error.message);
+      }
+      throw error;
+    }
+  }
 
   return {
     workspaceRoot,
@@ -76,5 +102,7 @@ export async function runBuild(options: BuildOptions = {}): Promise<BuildResult>
     filesWritten,
     vendoredPackages,
     lockWritten: resolved.written,
+    contextIndexPath,
+    contextWarnings,
   };
 }
