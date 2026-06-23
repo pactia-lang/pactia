@@ -21,7 +21,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - Rust crate package model — `pactia.toml` + `index.pactia`; no `pactia.package.json`
 - CI (Node 20/22), git hooks, PR and issue templates
 - Broad unit and integration test coverage (config, resolver, install, vendor, CLI, commands)
-- **`pactia build` context index** — `context.index.json` with per-file digests; bundles context files under `out/input/context/` by default (`--no-bundle-context` to skip copy)
+- **`pactia build` context index** — `context.index.json` with per-file digests; bundles context files under `out/input/context/` by default (`--no-bundle-context` to skip copy); rewrites IR and index paths to bundle-relative `context/...` locations for portable agent handoff
 
 ### Changed
 
