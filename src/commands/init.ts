@@ -1,24 +1,16 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { runFetch, FetchError } from "./fetch.js";
-import {
-  parseProductStack,
-  ProductStack,
-  renderProductPactia,
-  stackDependenciesFor,
-} from "../templates/product-stack.js";
+import { renderMinimalProductPactia } from "../templates/init-template.js";
 import { serializeWorkspaceToml } from "../resolve/workspace-toml.js";
 
 export interface InitOptions {
   readonly directory: string;
   readonly name?: string;
-  readonly stack?: ProductStack;
 }
 
 export interface InitResult {
   readonly workspaceRoot: string;
   readonly productName: string;
-  readonly stack: ProductStack;
 }
 
 export class InitError extends Error {
@@ -47,33 +39,21 @@ export function runInit(options: InitOptions): InitResult {
   }
 
   mkdirSync(workspaceRoot, { recursive: true });
-  const stack = options.stack ?? ProductStack.RustStack;
   const slug = workspaceRoot.split("/").pop() ?? "product";
   const productName = toProductName(slug, options.name);
 
   const toml = serializeWorkspaceToml({
     name: slug,
     version: "0.1.0",
-    dependencies: stackDependenciesFor(stack),
+    dependencies: new Map(),
   });
 
   writeFileSync(join(workspaceRoot, "pactia.toml"), toml, "utf8");
   writeFileSync(
     join(workspaceRoot, "product.pactia"),
-    renderProductPactia(productName, stack),
+    renderMinimalProductPactia(productName),
     "utf8",
   );
 
-  try {
-    runFetch({ workspaceRoot });
-  } catch (error) {
-    if (error instanceof FetchError) {
-      throw new InitError(error.message);
-    }
-    throw error;
-  }
-
-  return { workspaceRoot, productName, stack };
+  return { workspaceRoot, productName };
 }
-
-export { parseProductStack, ProductStack };

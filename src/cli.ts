@@ -1,88 +1,29 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parseArgs, printUsage } from "./cli/parse-args.js";
 import { PactiaCommand } from "./domain/pactia-command.js";
 import { runAdd } from "./commands/add.js";
 import { runBuild, BuildError } from "./commands/build.js";
-import { runFetch, FetchError } from "./commands/fetch.js";
-import { runInit, InitError, parseProductStack } from "./commands/init.js";
+import { runInstall, InstallError } from "./commands/install.js";
+import { runInit, InitError } from "./commands/init.js";
+import { runPublish, PublishError } from "./commands/publish.js";
+import { runUpdate, UpdateError } from "./commands/update.js";
+import { runWhy, WhyError } from "./commands/why.js";
 import { ResolveError } from "./domain/resolve-error.js";
 import { WorkspaceError } from "./workspace/find-workspace.js";
 
-interface CliArgs {
-  readonly command: PactiaCommand | undefined;
-  readonly workspaceRoot: string | undefined;
-  readonly outputDir: string | undefined;
-  readonly initDirectory: string | undefined;
-  readonly initName: string | undefined;
-  readonly initStack: string | undefined;
-  readonly addCoordinate: string | undefined;
-  readonly addRange: string | undefined;
-}
-
-function parseCommand(value: string): PactiaCommand | undefined {
-  return (Object.values(PactiaCommand) as string[]).includes(value)
-    ? (value as PactiaCommand)
-    : undefined;
-}
-
-function parseArgs(argv: string[]): CliArgs {
-  const [commandRaw = "", ...optionArgs] = argv;
-  let workspaceRoot: string | undefined;
-  let outputDir: string | undefined;
-  let initDirectory: string | undefined;
-  let initName: string | undefined;
-  let initStack: string | undefined;
-  let addCoordinate: string | undefined;
-  let addRange: string | undefined;
-
-  const positionals: string[] = [];
-
-  for (let i = 0; i < optionArgs.length; i += 1) {
-    const arg = optionArgs[i];
-    if ((arg === "-C" || arg === "--directory") && optionArgs[i + 1]) {
-      workspaceRoot = optionArgs[i + 1];
-      i += 1;
-    } else if ((arg === "-o" || arg === "--output") && optionArgs[i + 1]) {
-      outputDir = optionArgs[i + 1];
-      i += 1;
-    } else if (arg === "--name" && optionArgs[i + 1]) {
-      initName = optionArgs[i + 1];
-      i += 1;
-    } else if (arg === "--stack" && optionArgs[i + 1]) {
-      initStack = optionArgs[i + 1];
-      i += 1;
-    } else if (arg && !arg.startsWith("-")) {
-      positionals.push(arg);
-    }
-  }
-
-  if (commandRaw === PactiaCommand.Init) {
-    initDirectory = positionals[0];
-  }
-  if (commandRaw === PactiaCommand.Add) {
-    addCoordinate = positionals[0];
-    addRange = positionals[1];
-  }
-
-  return {
-    command: parseCommand(commandRaw),
-    workspaceRoot,
-    outputDir,
-    initDirectory,
-    initName,
-    initStack,
-    addCoordinate,
-    addRange,
-  };
-}
-
-function printUsage(): void {
-  process.stderr.write(
-    "Usage:\n" +
-      "  pactia init <dir> [--name <ProductName>] [--stack rust-stack|html-css-js]\n" +
-      "  pactia add <@scope/name> [range] [-C <workspace-dir>]\n" +
-      "  pactia fetch [-C <workspace-dir>]\n" +
-      "  pactia build [-C <workspace-dir>] [-o <output-dir>]\n",
+function cliVersion(): string {
+  const packageJsonPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "package.json",
   );
+  const manifest = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+    version?: string;
+  };
+  return manifest.version ?? "0.0.0";
 }
 
 function handleError(error: unknown): void {
@@ -91,7 +32,10 @@ function handleError(error: unknown): void {
     error instanceof WorkspaceError ||
     error instanceof ResolveError ||
     error instanceof InitError ||
-    error instanceof FetchError
+    error instanceof InstallError ||
+    error instanceof UpdateError ||
+    error instanceof WhyError ||
+    error instanceof PublishError
   ) {
     process.stderr.write(`error: ${error.message}\n`);
     process.exit(1);
@@ -100,7 +44,7 @@ function handleError(error: unknown): void {
   throw error;
 }
 
-function runCommand(args: CliArgs): void {
+async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
   switch (args.command) {
     case PactiaCommand.Init: {
       if (!args.initDirectory) {
@@ -111,10 +55,9 @@ function runCommand(args: CliArgs): void {
       const result = runInit({
         directory: args.initDirectory,
         name: args.initName,
-        stack: parseProductStack(args.initStack),
       });
       process.stdout.write(
-        `Initialized '${result.productName}' at ${result.workspaceRoot} (${result.stack})\n`,
+        `Initialized '${result.productName}' at ${result.workspaceRoot}\n`,
       );
       return;
     }
@@ -124,7 +67,7 @@ function runCommand(args: CliArgs): void {
         process.exit(1);
         return;
       }
-      const result = runAdd({
+      const result = await runAdd({
         workspaceRoot: args.workspaceRoot,
         coordinate: args.addCoordinate,
         range: args.addRange,
@@ -132,24 +75,46 @@ function runCommand(args: CliArgs): void {
       if (result.lockWritten) {
         process.stdout.write(`updated pactia.lock\n`);
       }
-      if (result.fetched.length > 0) {
-        process.stdout.write(`fetched ${result.fetched.join(", ")}\n`);
-      }
-      process.stdout.write(`added ${result.coordinate} = "${result.range}"\n`);
-      return;
-    }
-    case PactiaCommand.Fetch: {
-      const result = runFetch({ workspaceRoot: args.workspaceRoot });
-      if (result.lockWritten) {
-        process.stdout.write(`updated pactia.lock\n`);
-      }
-      if (result.fetched.length > 0) {
-        process.stdout.write(`fetched ${result.fetched.join(", ")}\n`);
+      if (result.installed.length > 0) {
+        process.stdout.write(`installed ${result.installed.join(", ")}\n`);
       }
       if (result.vendoredPackages.length > 0) {
         process.stdout.write(`vendored ${result.vendoredPackages.join(", ")}\n`);
       }
-      process.stdout.write(`Finished fetch at ${result.workspaceRoot}\n`);
+      process.stdout.write(`added ${result.coordinate} = "${result.range}"\n`);
+      return;
+    }
+    case PactiaCommand.Install: {
+      const result = await runInstall({ workspaceRoot: args.workspaceRoot });
+      if (result.installed.length > 0) {
+        process.stdout.write(`installed ${result.installed.join(", ")}\n`);
+      }
+      if (result.vendoredPackages.length > 0) {
+        process.stdout.write(`vendored ${result.vendoredPackages.join(", ")}\n`);
+      }
+      process.stdout.write(`Finished install at ${result.workspaceRoot}\n`);
+      return;
+    }
+    case PactiaCommand.Update: {
+      const result = await runUpdate({
+        workspaceRoot: args.workspaceRoot,
+        coordinate: args.updateCoordinate,
+      });
+      if (result.lockWritten) {
+        process.stdout.write(`updated pactia.lock\n`);
+      }
+      if (result.installed.length > 0) {
+        process.stdout.write(`installed ${result.installed.join(", ")}\n`);
+      }
+      if (result.vendoredPackages.length > 0) {
+        process.stdout.write(`vendored ${result.vendoredPackages.join(", ")}\n`);
+      }
+      if (result.coordinate) {
+        process.stdout.write(`updated ${result.coordinate}\n`);
+      } else {
+        process.stdout.write(`updated all dependencies\n`);
+      }
+      process.stdout.write(`Finished update at ${result.workspaceRoot}\n`);
       return;
     }
     case PactiaCommand.Build: {
@@ -157,11 +122,8 @@ function runCommand(args: CliArgs): void {
         workspaceRoot: args.workspaceRoot,
         outputDir: args.outputDir,
       };
-      const build = runBuild(options);
+      const build = await runBuild(options);
 
-      if (build.lockWritten) {
-        process.stdout.write("updated pactia.lock\n");
-      }
       if (build.vendoredPackages.length > 0) {
         process.stdout.write(`vendored ${build.vendoredPackages.join(", ")}\n`);
       }
@@ -171,14 +133,54 @@ function runCommand(args: CliArgs): void {
       process.stdout.write(`Finished \`${args.command}\` at ${build.outputDir}\n`);
       return;
     }
+    case PactiaCommand.Why: {
+      if (!args.whyCoordinate) {
+        printUsage();
+        process.exit(1);
+        return;
+      }
+      const result = await runWhy({
+        workspaceRoot: args.workspaceRoot,
+        coordinate: args.whyCoordinate,
+      });
+      process.stdout.write(`${result.output}\n`);
+      return;
+    }
+    case PactiaCommand.Publish: {
+      const result = runPublish({
+        packageRoot: args.workspaceRoot,
+        dryRun: args.publishDryRun,
+      });
+      process.stdout.write(
+        `ok: ${result.name}@${result.version} at ${result.packageRoot}\n`,
+      );
+      process.stdout.write(
+        `tag with: git tag v${result.version} && git push origin v${result.version}\n`,
+      );
+      return;
+    }
     default:
       printUsage();
       process.exit(1);
   }
 }
 
-function main(): void {
-  const args = parseArgs(process.argv.slice(2));
+async function main(): Promise<void> {
+  const argv = process.argv.slice(2);
+
+  if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
+    printUsage();
+    process.exit(argv.length === 0 ? 1 : 0);
+    return;
+  }
+
+  if (argv.includes("--version") || argv.includes("-v")) {
+    process.stdout.write(`pactia ${cliVersion()}\n`);
+    process.exit(0);
+    return;
+  }
+
+  const args = parseArgs(argv);
   if (!args.command) {
     printUsage();
     process.exit(1);
@@ -186,10 +188,12 @@ function main(): void {
   }
 
   try {
-    runCommand(args);
+    await runCommand(args);
   } catch (error) {
     handleError(error);
   }
 }
 
-main();
+main().catch((error) => {
+  handleError(error);
+});

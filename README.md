@@ -5,21 +5,24 @@ Package manager for Pactia workspaces. Resolves dependencies, vendors packages, 
 ## Commands
 
 ```bash
-pactia init <dir> [--name <ProductName>] [--stack rust-stack|html-css-js]
+pactia init <dir> [--name <ProductName>]
 pactia add <@scope/name> [range] [-C <workspace-dir>]
-pactia fetch [-C <workspace-dir>]
-pactia build [-C <workspace-dir>] [-o <output-dir>]   # default output: out/
+pactia install [-C <workspace-dir>]
+pactia update [<@scope/name>] [-C <workspace-dir>]
+pactia build [-C <workspace-dir>] [-o <output-dir>]
+pactia why <@scope/name> [-C <workspace-dir>]
+pactia publish --dry-run [-C <package-dir>]
 ```
 
-`pactia fetch` and `pactia build` resolve semver ranges, write `pactia.lock`, download dependencies into the global cache, and copy pinned packages into the workspace vendor directory. Set `PACTIA_VENDOR_ROOT` for a local package index during development (instead of git fetch).
+`pactia add` and `pactia update` resolve semver ranges and write `pactia.lock`. `pactia install` and `pactia build` use the lock only (pinned versions, digest verify). `pactia why` explains a locked dependency chain. `pactia publish --dry-run` checks a package tree before you tag. Dependencies download into `~/.pactia/packages/` and copy into `.pactia/packages/`. Configure remotes in `~/.pactia/config.toml` (see `config/config.example.toml`). Set `PACTIA_VENDOR_ROOT` for a local package index during development.
 
-Planned: `publish`.
+Release packages with `git tag v{version} && git push` after a successful dry-run.
 
 ## Package storage
 
-After `pactia fetch` (or `pactia build`, which fetch-then-compiles), packages live in two places:
+After `pactia install` (or `pactia build`, which install-then-compiles), packages live in two places:
 
-- **`~/.pactia/packages/`** — global cache where fetch downloads or copies packages (git clone, or from `PACTIA_VENDOR_ROOT`)
+- **`~/.pactia/packages/`** — global cache where install downloads or copies packages (git clone, or from `PACTIA_VENDOR_ROOT`)
 - **`<workspace>/.pactia/packages/`** — workspace vendor: copies of locked packages used by pactiac when compiling this project
 
 Directory names encode coordinate and version: `@pactia/kernel@1.0.0` → `@pactia--kernel@1.0.0/` (scope `/` becomes `--`).
@@ -43,7 +46,7 @@ my-product/
   pactia.lock           # pinned dependency versions
   product.pactia        # package imports + attach (fragments do not import @pactia/*)
   fragments/…           # attached modules
-  .pactia/packages/     # vendored deps (copied from ~/.pactia/packages/ on fetch/build)
+  .pactia/packages/     # vendored deps (copied from ~/.pactia/packages/ on install/build)
   out/                  # compile output (default)
 ```
 
@@ -160,7 +163,7 @@ npm test
 pactia/
   src/
     cli.ts
-    commands/         init, add, fetch, build
+    commands/         init, add, install, update, build, why, publish
     vendor/           lock → .pactia/packages/
     workspace/        find pactia.toml + product.pactia
   scripts/

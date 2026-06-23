@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { compileWorkspace, parsePactiaLock } from "@pactia/pactiac";
 import { writeCompileOutput } from "../io/write-output.js";
-import { resolveWorkspaceLock } from "../resolve/lock-resolver.js";
+import { installLockedPackages } from "../resolve/lock-resolver.js";
 import { ensureVendoredPackages, VendorError } from "../vendor/ensure-vendored.js";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
 
@@ -28,7 +28,7 @@ export class BuildError extends Error {
 
 const DEFAULT_OUTPUT_DIR = "out";
 
-export function runBuild(options: BuildOptions = {}): BuildResult {
+export async function runBuild(options: BuildOptions = {}): Promise<BuildResult> {
   let workspaceRoot: string;
   try {
     workspaceRoot = options.workspaceRoot
@@ -38,7 +38,7 @@ export function runBuild(options: BuildOptions = {}): BuildResult {
     throw error instanceof WorkspaceError ? error : new BuildError(String(error));
   }
 
-  const resolved = resolveWorkspaceLock(workspaceRoot);
+  const resolved = await installLockedPackages(workspaceRoot);
 
   let vendoredPackages: readonly string[] = [];
   if (resolved.lock.packages.length > 0) {

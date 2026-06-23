@@ -55,7 +55,7 @@ export function ensureVendoredPackages(
     if (!sourceDir) {
       throw new VendorError(
         `Locked package '${entry.name}@${entry.version}' is not available under ${vendorDir}. ` +
-          `Run pactia fetch or set PACTIA_VENDOR_ROOT.`,
+          `Run pactia install or set PACTIA_VENDOR_ROOT.`,
       );
     }
 

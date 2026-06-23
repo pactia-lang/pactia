@@ -2,6 +2,9 @@
 export enum PactiaCommand {
   Init = "init",
   Add = "add",
-  Fetch = "fetch",
+  Install = "install",
+  Update = "update",
   Build = "build",
+  Why = "why",
+  Publish = "publish",
 }

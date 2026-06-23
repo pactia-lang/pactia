@@ -16,14 +16,14 @@ const marketplaceRoot = resolve(packageRoot, "..", "examples", "marketplace");
 const websiteRoot = join(pactiacRoot, "test", "fixtures", "workspace", "website");
 
 describe("runBuild", () => {
-  it("builds marketplace example when vendor packages are available", () => {
+  it("builds marketplace example when vendor packages are available", async () => {
     if (!existsSync(marketplaceRoot) || !existsSync(pactiacPackages)) {
       return;
     }
 
     const outputDir = mkdtempSync(join(tmpdir(), "pactia-build-"));
     try {
-      const result = runBuild({
+      const result = await runBuild({
         workspaceRoot: marketplaceRoot,
         outputDir,
       });
@@ -40,14 +40,14 @@ describe("runBuild", () => {
     }
   });
 
-  it("builds pactia-lang-website example when vendor packages are available", () => {
+  it("builds pactia-lang-website example when vendor packages are available", async () => {
     if (!existsSync(websiteRoot) || !existsSync(pactiacPackages)) {
       return;
     }
 
     const outputDir = mkdtempSync(join(tmpdir(), "pactia-website-build-"));
     try {
-      const result = runBuild({
+      const result = await runBuild({
         workspaceRoot: websiteRoot,
         outputDir,
       });

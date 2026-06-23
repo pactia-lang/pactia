@@ -9,10 +9,25 @@ export enum PackageCacheKind {
 }
 
 const GLOBAL_CACHE_DIR = join(homedir(), ".pactia", "packages");
+const VERSION_INDEX_CACHE_DIR = join(homedir(), ".pactia", "cache");
 const WORKSPACE_VENDOR_DIR = ".pactia/packages";
 
+function resolveOverride(envName: string, defaultDir: string): string {
+  const override = process.env[envName];
+  return override ? resolve(override) : defaultDir;
+}
+
 export function globalPackageCacheDir(): string {
-  return GLOBAL_CACHE_DIR;
+  return resolveOverride("PACTIA_PACKAGES_DIR", GLOBAL_CACHE_DIR);
+}
+
+export function versionIndexCacheDir(): string {
+  return resolveOverride("PACTIA_VERSION_CACHE_DIR", VERSION_INDEX_CACHE_DIR);
+}
+
+export function versionIndexCachePath(coordinate: string): string {
+  const encoded = coordinate.slice(1).replace(/\//g, "--");
+  return join(versionIndexCacheDir(), `@${encoded}`, "versions.json");
 }
 
 export function workspaceVendorDir(workspaceRoot: string): string {

@@ -1,9 +1,10 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { normalizeCoordinate } from "../domain/package-coordinate.js";
 import { resolveWorkspaceLock } from "../resolve/lock-resolver.js";
 import { upsertDependency } from "../resolve/workspace-toml.js";
-import { readFileSync } from "node:fs";
+import { ensureVendoredPackages, VendorError } from "../vendor/ensure-vendored.js";
+import { InstallWorkspaceError } from "./install-workspace.js";
 
 export interface AddOptions {
   readonly workspaceRoot?: string;
@@ -16,12 +17,13 @@ export interface AddResult {
   readonly coordinate: string;
   readonly range: string;
   readonly lockWritten: boolean;
-  readonly fetched: readonly string[];
+  readonly installed: readonly string[];
+  readonly vendoredPackages: readonly string[];
 }
 
 const DEFAULT_RANGE = "^1.0";
 
-export function runAdd(options: AddOptions): AddResult {
+export async function runAdd(options: AddOptions): Promise<AddResult> {
   const workspaceRoot = resolve(options.workspaceRoot ?? process.cwd());
   const coordinate = normalizeCoordinate(options.coordinate);
   const range = options.range ?? DEFAULT_RANGE;
@@ -31,12 +33,24 @@ export function runAdd(options: AddOptions): AddResult {
   const nextToml = upsertDependency(source, coordinate, range);
   writeFileSync(tomlPath, nextToml, "utf8");
 
-  const resolved = resolveWorkspaceLock(workspaceRoot);
+  const resolved = await resolveWorkspaceLock(workspaceRoot);
+
+  let vendoredPackages: readonly string[] = [];
+  try {
+    vendoredPackages = ensureVendoredPackages(workspaceRoot, resolved.lock);
+  } catch (error) {
+    if (error instanceof VendorError) {
+      throw new InstallWorkspaceError(error.message);
+    }
+    throw error;
+  }
+
   return {
     workspaceRoot,
     coordinate,
     range,
     lockWritten: resolved.written,
-    fetched: resolved.fetched,
+    installed: resolved.fetched,
+    vendoredPackages,
   };
 }
