@@ -5,6 +5,9 @@ export function renderMinimalProductPactia(productName: string): string {
     `product ${productName} {`,
     `  > ${productName} — describe what must stay true.`,
     `  > Add package imports here; pin dependencies with pactia add.`,
+    "",
+    "  module core {",
+    "  }",
     "}",
     "",
   ].join("\n");

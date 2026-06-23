@@ -26,7 +26,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **Lock-is-truth** — `install` and `build` install from `pactia.lock` only; no silent re-resolve
 - **`pactia add`** — vendors into `.pactia/packages/` in the same step as lock update
-- **`pactia init`** — minimal prose-only `product.pactia`; dropped `--stack` / `ProductStack`
+- **`pactia init`** — minimal `product.pactia` with prose and an empty `module core` (compilable after `pactia add`); dropped `--stack` / `ProductStack`
 - Split `lock-resolver` and CLI arg parsing into focused modules (`lock-types`, `lock-support`, `install-locked-packages`, `resolve-workspace-lock`, `cli/parse-args`)
 - Workspace discovery walks to filesystem root when searching for `pactia.toml`
 
