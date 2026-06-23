@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DownloadPrefer, type PactiaConfig } from "../config/pactia-config.js";
 import { ResolveError } from "../domain/resolve-error.js";
-import { gitSourceForCoordinate, PackageRepoLayout } from "./package-registry.js";
+import { gitSourceForCoordinate, PackageRepoLayout, remoteRefForCoordinate } from "./package-registry.js";
 
 function testConfig(): PactiaConfig {
   return {
@@ -64,5 +64,23 @@ describe("gitSourceForCoordinate", () => {
         error instanceof ResolveError &&
         error.message.includes('[hosts."git.example.com"]'),
     );
+  });
+});
+
+describe("remoteRefForCoordinate", () => {
+  it("resolves scoped package remotes from source git base", () => {
+    const remote = remoteRefForCoordinate("@pactia/kernel", testConfig());
+    assert.equal(remote?.host, "github.com");
+    assert.equal(remote?.owner, "pactia-io");
+    assert.equal(remote?.repo, "kernel");
+  });
+
+  it("resolves Go-style remotes", () => {
+    const remote = remoteRefForCoordinate("@github.com/acme/fleet-rules", testConfig());
+    assert.deepEqual(remote, {
+      host: "github.com",
+      owner: "acme",
+      repo: "fleet-rules",
+    });
   });
 });

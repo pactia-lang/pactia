@@ -46,6 +46,17 @@ describe("runInit", () => {
       rmSync(parent, { recursive: true, force: true });
     }
   });
+
+  it("rejects init when workspace already exists", () => {
+    const parent = mkdtempSync(join(tmpdir(), "pactia-init-dup-"));
+    const workspace = join(parent, "demo");
+    try {
+      runInit({ directory: workspace });
+      assert.throws(() => runInit({ directory: workspace }));
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("runAdd", () => {

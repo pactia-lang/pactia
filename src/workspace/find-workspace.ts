@@ -20,16 +20,16 @@ function isWorkspaceRoot(dir: string): boolean {
 /** Find nearest directory containing pactia.toml and product.pactia. */
 export function findWorkspaceRoot(startDir: string = process.cwd()): string {
   let dir = resolve(startDir);
-  const root = dirname(dir);
 
   while (true) {
     if (isWorkspaceRoot(dir)) {
       return dir;
     }
-    if (dir === root) {
+    const parent = dirname(dir);
+    if (parent === dir) {
       break;
     }
-    dir = dirname(dir);
+    dir = parent;
   }
 
   throw new WorkspaceError(

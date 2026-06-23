@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import { parsePactiaLock } from "@pactia/pactiac";
 import { ResolveError, ResolveErrorCode } from "../domain/resolve-error.js";
-import { installLockedPackages, resolveWorkspaceLock } from "./lock-resolver.js";
+import { installLockedPackages, resolveWorkspaceLock, updateWorkspaceLock } from "./lock-resolver.js";
 import { serializeWorkspaceToml } from "./workspace-toml.js";
 
 const pactiacPackages = join(
@@ -149,6 +149,83 @@ describe("installLockedPackages", () => {
       const result = await installLockedPackages(workspace);
       assert.equal(result.written, false);
       assert.equal(readFileSync(join(workspace, "pactia.lock"), "utf8"), before);
+    } finally {
+      if (previousVendorRoot === undefined) delete process.env["PACTIA_VENDOR_ROOT"];
+      else process.env["PACTIA_VENDOR_ROOT"] = previousVendorRoot;
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("updateWorkspaceLock", () => {
+  it("rejects coordinates that are not workspace dependencies", async () => {
+    const workspace = mkdtempSync(join(tmpdir(), "pactia-update-bad-"));
+    try {
+      writeFileSync(
+        join(workspace, "pactia.toml"),
+        serializeWorkspaceToml({
+          name: "demo",
+          version: "0.1.0",
+          dependencies: new Map([["@pactia/kernel", "^1.0"]]),
+        }),
+      );
+      writeFileSync(join(workspace, "product.pactia"), "pactia 1.0\n\nproduct Demo {}\n", "utf8");
+
+      await assert.rejects(
+        () => updateWorkspaceLock(workspace, "@pactia/missing"),
+        (error: unknown) => {
+          assert.ok(error instanceof ResolveError);
+          assert.equal(error.code, ResolveErrorCode.PackageNotFound);
+          return true;
+        },
+      );
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("installLockedPackages stale lock", () => {
+  it("errors when lock lists an orphan package", async () => {
+    if (!existsSync(pactiacPackages)) {
+      return;
+    }
+
+    const workspace = mkdtempSync(join(tmpdir(), "pactia-orphan-lock-"));
+    const previousVendorRoot = process.env["PACTIA_VENDOR_ROOT"];
+    process.env["PACTIA_VENDOR_ROOT"] = pactiacPackages;
+
+    try {
+      writeFileSync(
+        join(workspace, "pactia.toml"),
+        serializeWorkspaceToml({
+          name: "demo",
+          version: "0.1.0",
+          dependencies: new Map([["@pactia/kernel", "^1.0"]]),
+        }),
+      );
+      writeFileSync(join(workspace, "product.pactia"), "pactia 1.0\n\nproduct Demo {}\n", "utf8");
+      await resolveWorkspaceLock(workspace);
+
+      const lock = parsePactiaLock(readFileSync(join(workspace, "pactia.lock"), "utf8"));
+      const orphan = {
+        name: "@pactia/orphan",
+        version: "1.0.0",
+        digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      };
+      writeFileSync(
+        join(workspace, "pactia.lock"),
+        `lockVersion = 1\n\n[[package]]\nname = "${lock.packages[0]!.name}"\nversion = "${lock.packages[0]!.version}"\ndigest = "${lock.packages[0]!.digest}"\n\n[[package]]\nname = "${orphan.name}"\nversion = "${orphan.version}"\ndigest = "${orphan.digest}"\n`,
+      );
+
+      await assert.rejects(
+        () => installLockedPackages(workspace),
+        (error: unknown) => {
+          assert.ok(error instanceof ResolveError);
+          assert.equal(error.code, ResolveErrorCode.LockStale);
+          return true;
+        },
+      );
     } finally {
       if (previousVendorRoot === undefined) delete process.env["PACTIA_VENDOR_ROOT"];
       else process.env["PACTIA_VENDOR_ROOT"] = previousVendorRoot;

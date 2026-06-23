@@ -2,29 +2,17 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs, printUsage } from "./cli/parse-args.js";
 import { PactiaCommand } from "./domain/pactia-command.js";
 import { runAdd } from "./commands/add.js";
 import { runBuild, BuildError } from "./commands/build.js";
 import { runInstall, InstallError } from "./commands/install.js";
 import { runInit, InitError } from "./commands/init.js";
-import { runUpdate, UpdateError } from "./commands/update.js";
 import { runPublish, PublishError } from "./commands/publish.js";
+import { runUpdate, UpdateError } from "./commands/update.js";
 import { runWhy, WhyError } from "./commands/why.js";
 import { ResolveError } from "./domain/resolve-error.js";
 import { WorkspaceError } from "./workspace/find-workspace.js";
-
-interface CliArgs {
-  readonly command: PactiaCommand | undefined;
-  readonly workspaceRoot: string | undefined;
-  readonly outputDir: string | undefined;
-  readonly initDirectory: string | undefined;
-  readonly initName: string | undefined;
-  readonly addCoordinate: string | undefined;
-  readonly addRange: string | undefined;
-  readonly updateCoordinate: string | undefined;
-  readonly whyCoordinate: string | undefined;
-  readonly publishDryRun: boolean;
-}
 
 function cliVersion(): string {
   const packageJsonPath = join(
@@ -36,87 +24,6 @@ function cliVersion(): string {
     version?: string;
   };
   return manifest.version ?? "0.0.0";
-}
-
-function parseCommand(value: string): PactiaCommand | undefined {
-  return (Object.values(PactiaCommand) as string[]).includes(value)
-    ? (value as PactiaCommand)
-    : undefined;
-}
-
-function parseArgs(argv: string[]): CliArgs {
-  const [commandRaw = "", ...optionArgs] = argv;
-  let workspaceRoot: string | undefined;
-  let outputDir: string | undefined;
-  let initDirectory: string | undefined;
-  let initName: string | undefined;
-  let addCoordinate: string | undefined;
-  let addRange: string | undefined;
-  let updateCoordinate: string | undefined;
-  let whyCoordinate: string | undefined;
-  let publishDryRun = false;
-
-  const positionals: string[] = [];
-
-  for (let i = 0; i < optionArgs.length; i += 1) {
-    const arg = optionArgs[i];
-    if ((arg === "-C" || arg === "--directory") && optionArgs[i + 1]) {
-      workspaceRoot = optionArgs[i + 1];
-      i += 1;
-    } else if ((arg === "-o" || arg === "--output") && optionArgs[i + 1]) {
-      outputDir = optionArgs[i + 1];
-      i += 1;
-    } else if (arg === "--name" && optionArgs[i + 1]) {
-      initName = optionArgs[i + 1];
-      i += 1;
-    } else if (arg === "--dry-run") {
-      publishDryRun = true;
-    } else if (arg && !arg.startsWith("-")) {
-      positionals.push(arg);
-    }
-  }
-
-  if (commandRaw === PactiaCommand.Init) {
-    initDirectory = positionals[0];
-  }
-  if (commandRaw === PactiaCommand.Add) {
-    addCoordinate = positionals[0];
-    addRange = positionals[1];
-  }
-  if (commandRaw === PactiaCommand.Update) {
-    updateCoordinate = positionals[0];
-  }
-  if (commandRaw === PactiaCommand.Why) {
-    whyCoordinate = positionals[0];
-  }
-
-  return {
-    command: parseCommand(commandRaw),
-    workspaceRoot,
-    outputDir,
-    initDirectory,
-    initName,
-    addCoordinate,
-    addRange,
-    updateCoordinate,
-    whyCoordinate,
-    publishDryRun,
-  };
-}
-
-function printUsage(): void {
-  process.stderr.write(
-    "Usage:\n" +
-      "  pactia init <dir> [--name <ProductName>]\n" +
-      "  pactia add <@scope/name> [range] [-C <workspace-dir>]\n" +
-      "  pactia install [-C <workspace-dir>]\n" +
-      "  pactia update [<@scope/name>] [-C <workspace-dir>]\n" +
-      "  pactia build [-C <workspace-dir>] [-o <output-dir>]\n" +
-      "  pactia why <@scope/name> [-C <workspace-dir>]\n" +
-      "  pactia publish --dry-run [-C <package-dir>]\n" +
-      "\n" +
-      "Global options: --help, -h, --version, -v\n",
-  );
 }
 
 function handleError(error: unknown): void {
@@ -137,7 +44,7 @@ function handleError(error: unknown): void {
   throw error;
 }
 
-async function runCommand(args: CliArgs): Promise<void> {
+async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
   switch (args.command) {
     case PactiaCommand.Init: {
       if (!args.initDirectory) {
@@ -247,7 +154,9 @@ async function runCommand(args: CliArgs): Promise<void> {
       process.stdout.write(
         `ok: ${result.name}@${result.version} at ${result.packageRoot}\n`,
       );
-      process.stdout.write(`tag with: git tag v${result.version} && git push origin v${result.version}\n`);
+      process.stdout.write(
+        `tag with: git tag v${result.version} && git push origin v${result.version}\n`,
+      );
       return;
     }
     default:
