@@ -20,6 +20,13 @@ import {
   type ContextIrEntry,
   type ContextIndexedFile,
 } from "./types.js";
+import {
+  CONTEXT_BUNDLE_DIR,
+  bundleContextPath,
+  bundleContextPathValue,
+  normalizeRelativePath,
+} from "./bundle-context-path.js";
+import { rewriteBundledContextInValue } from "./rewrite-bundled-context.js";
 
 export class ContextBuildError extends Error {
   constructor(message: string) {
@@ -38,6 +45,7 @@ export interface BuildContextArtifactsOptions {
 export interface BuildContextArtifactsResult {
   readonly indexPath: string;
   readonly bundledFiles: readonly string[];
+  readonly rewrittenIrPaths: readonly string[];
   readonly warnings: readonly string[];
 }
 
@@ -55,6 +63,7 @@ export function buildContextArtifacts(
   const warnings: string[] = [];
   const entries: ContextIndexEntry[] = [];
   const bundledFiles: string[] = [];
+  const rewrittenIrPaths: string[] = [];
 
   for (const { irPath, scope } of listIrJsonFiles(inputDir)) {
     const source = readFileSync(irPath, "utf8");
@@ -78,27 +87,44 @@ export function buildContextArtifacts(
       }
 
       const indexedFiles: ContextIndexedFile[] = files.map((file) => ({
-        path: file.displayPath,
+        path: options.bundleContext ? bundleContextPath(file.displayPath) : file.displayPath,
         digest: sha256File(file.sourcePath),
       }));
 
       if (options.bundleContext) {
         for (const file of files) {
-          const bundleTarget = join(outputDir, "input", "context", file.displayPath);
+          const bundleTarget = join(outputDir, "input", CONTEXT_BUNDLE_DIR, file.displayPath);
           mkdirSync(join(bundleTarget, ".."), { recursive: true });
           copyFileSync(file.sourcePath, bundleTarget);
           bundledFiles.push(relative(outputDir, bundleTarget));
         }
       }
 
+      const indexPathValue = options.bundleContext
+        ? bundleContextPathValue(contextEntry.path)
+        : contextEntry.path;
+
       entries.push({
         id: contextEntry.id,
         scope,
-        path: contextEntry.path,
+        path: indexPathValue,
         files: indexedFiles,
         ...(contextEntry.guidance ? { guidance: [...contextEntry.guidance] } : {}),
-        ...(contextEntry.package ? { package: contextEntry.package } : {}),
+        ...(!options.bundleContext && contextEntry.package ? { package: contextEntry.package } : {}),
       });
+    }
+  }
+
+  if (options.bundleContext) {
+    for (const irPath of listIrJsonPaths(inputDir, { includeWorkspace: true })) {
+      const source = readFileSync(irPath, "utf8");
+      if (!source.includes('"context"')) {
+        continue;
+      }
+      const parsed = JSON.parse(source) as unknown;
+      const rewritten = rewriteBundledContextInValue(parsed);
+      writeFileSync(irPath, `${JSON.stringify(rewritten, null, 2)}\n`, "utf8");
+      rewrittenIrPaths.push(relative(outputDir, irPath));
     }
   }
 
@@ -109,19 +135,37 @@ export function buildContextArtifacts(
   return {
     indexPath: relative(outputDir, indexPath),
     bundledFiles,
+    rewrittenIrPaths,
     warnings,
   };
 }
 
 function listIrJsonFiles(inputDir: string): Array<{ irPath: string; scope: string }> {
+  return listIrJsonPaths(inputDir, { includeWorkspace: false }).map((irPath) => ({
+    irPath,
+    scope: irScopeFromPath(irPath),
+  }));
+}
+
+function listIrJsonPaths(
+  inputDir: string,
+  options: { readonly includeWorkspace: boolean },
+): string[] {
   if (!existsSync(inputDir)) {
     return [];
   }
 
-  const results: Array<{ irPath: string; scope: string }> = [];
+  const results: string[] = [];
+  if (options.includeWorkspace) {
+    const workspacePath = join(inputDir, "workspace.json");
+    if (existsSync(workspacePath)) {
+      results.push(workspacePath);
+    }
+  }
+
   const productPath = join(inputDir, "product.json");
   if (existsSync(productPath)) {
-    results.push({ irPath: productPath, scope: "product" });
+    results.push(productPath);
   }
 
   const modulesDir = join(inputDir, "modules");
@@ -133,11 +177,11 @@ function listIrJsonFiles(inputDir: string): Array<{ irPath: string; scope: strin
     const moduleDir = join(modulesDir, moduleName);
     const moduleJson = join(moduleDir, `${moduleName}.module.json`);
     if (existsSync(moduleJson)) {
-      results.push({ irPath: moduleJson, scope: `module/${moduleName}` });
+      results.push(moduleJson);
     }
     const modelJson = join(moduleDir, `${moduleName}.model.json`);
     if (existsSync(modelJson)) {
-      results.push({ irPath: modelJson, scope: `model/${moduleName}` });
+      results.push(modelJson);
     }
     const servicesDir = join(moduleDir, "services");
     if (!existsSync(servicesDir)) {
@@ -147,15 +191,34 @@ function listIrJsonFiles(inputDir: string): Array<{ irPath: string; scope: strin
       if (!serviceFile.endsWith(".service.json")) {
         continue;
       }
-      const stem = serviceFile.replace(/\.service\.json$/, "");
-      results.push({
-        irPath: join(servicesDir, serviceFile),
-        scope: `service/${moduleName}/${stem}`,
-      });
+      results.push(join(servicesDir, serviceFile));
     }
   }
 
   return results;
+}
+
+function irScopeFromPath(irPath: string): string {
+  const normalized = irPath.replace(/\\/g, "/");
+  if (normalized.endsWith("/product.json")) {
+    return "product";
+  }
+  if (normalized.endsWith("/workspace.json")) {
+    return "workspace";
+  }
+  const moduleMatch = /\/modules\/([^/]+)\/\1\.module\.json$/.exec(normalized);
+  if (moduleMatch) {
+    return `module/${moduleMatch[1]}`;
+  }
+  const modelMatch = /\/modules\/([^/]+)\/\1\.model\.json$/.exec(normalized);
+  if (modelMatch) {
+    return `model/${modelMatch[1]}`;
+  }
+  const serviceMatch = /\/modules\/([^/]+)\/services\/([^/]+)\.service\.json$/.exec(normalized);
+  if (serviceMatch) {
+    return `service/${serviceMatch[1]}/${serviceMatch[2]}`;
+  }
+  return "unknown";
 }
 
 function extractContextEntries(slice: Record<string, unknown>): ContextIrEntry[] {
@@ -221,10 +284,6 @@ function packageRootForCoordinate(
     throw new ContextBuildError(`context package '${coordinate}' is missing from pactia.lock`);
   }
   return join(workspaceVendorDir(workspaceRoot), packageDirName(coordinate, lockEntry.version));
-}
-
-function normalizeRelativePath(path: string): string {
-  return path.replace(/^\.\//, "");
 }
 
 function expandContextPath(absolutePath: string, displayPath: string): ResolvedContextFile[] {

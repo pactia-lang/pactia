@@ -87,7 +87,11 @@ export async function runBuild(options: BuildOptions = {}): Promise<BuildResult>
       });
       contextIndexPath = contextResult.indexPath;
       contextWarnings.push(...contextResult.warnings);
-      filesWritten.push(contextResult.indexPath, ...contextResult.bundledFiles);
+      filesWritten.push(
+        contextResult.indexPath,
+        ...contextResult.bundledFiles,
+        ...contextResult.rewrittenIrPaths,
+      );
     } catch (error) {
       if (error instanceof ContextBuildError) {
         throw new BuildError(error.message);
