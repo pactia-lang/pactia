@@ -34,9 +34,9 @@ describe("parseArgs", () => {
     assert.equal(args.workspaceRoot, "/pkg");
   });
 
-  it("parses why coordinate", () => {
-    const args = parseArgs(["why", "kernel"]);
-    assert.equal(args.command, PactiaCommand.Why);
-    assert.equal(args.whyCoordinate, "kernel");
+  it("parses build --no-bundle-context", () => {
+    const args = parseArgs(["build", "--no-bundle-context", "-C", "/tmp/ws"]);
+    assert.equal(args.command, PactiaCommand.Build);
+    assert.equal(args.bundleContext, false);
   });
 });

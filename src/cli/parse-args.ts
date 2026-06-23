@@ -11,6 +11,7 @@ export interface CliArgs {
   readonly updateCoordinate: string | undefined;
   readonly whyCoordinate: string | undefined;
   readonly publishDryRun: boolean;
+  readonly bundleContext: boolean;
 }
 
 export function parseCommand(value: string): PactiaCommand | undefined {
@@ -30,6 +31,7 @@ export function parseArgs(argv: string[]): CliArgs {
   let updateCoordinate: string | undefined;
   let whyCoordinate: string | undefined;
   let publishDryRun = false;
+  let bundleContext = true;
 
   const positionals: string[] = [];
 
@@ -46,6 +48,8 @@ export function parseArgs(argv: string[]): CliArgs {
       i += 1;
     } else if (arg === "--dry-run") {
       publishDryRun = true;
+    } else if (arg === "--no-bundle-context") {
+      bundleContext = false;
     } else if (arg && !arg.startsWith("-")) {
       positionals.push(arg);
     }
@@ -76,6 +80,7 @@ export function parseArgs(argv: string[]): CliArgs {
     updateCoordinate,
     whyCoordinate,
     publishDryRun,
+    bundleContext,
   };
 }
 
@@ -86,7 +91,7 @@ export function printUsage(): void {
       "  pactia add <@scope/name> [range] [-C <workspace-dir>]\n" +
       "  pactia install [-C <workspace-dir>]\n" +
       "  pactia update [<@scope/name>] [-C <workspace-dir>]\n" +
-      "  pactia build [-C <workspace-dir>] [-o <output-dir>]\n" +
+      "  pactia build [-C <workspace-dir>] [-o <output-dir>] [--no-bundle-context]\n" +
       "  pactia why <@scope/name> [-C <workspace-dir>]\n" +
       "  pactia publish --dry-run [-C <package-dir>]\n" +
       "\n" +
