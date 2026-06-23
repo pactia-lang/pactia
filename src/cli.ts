@@ -8,6 +8,8 @@ import { runBuild, BuildError } from "./commands/build.js";
 import { runInstall, InstallError } from "./commands/install.js";
 import { runInit, InitError } from "./commands/init.js";
 import { runUpdate, UpdateError } from "./commands/update.js";
+import { runPublish, PublishError } from "./commands/publish.js";
+import { runWhy, WhyError } from "./commands/why.js";
 import { ResolveError } from "./domain/resolve-error.js";
 import { WorkspaceError } from "./workspace/find-workspace.js";
 
@@ -20,6 +22,8 @@ interface CliArgs {
   readonly addCoordinate: string | undefined;
   readonly addRange: string | undefined;
   readonly updateCoordinate: string | undefined;
+  readonly whyCoordinate: string | undefined;
+  readonly publishDryRun: boolean;
 }
 
 function cliVersion(): string {
@@ -49,6 +53,8 @@ function parseArgs(argv: string[]): CliArgs {
   let addCoordinate: string | undefined;
   let addRange: string | undefined;
   let updateCoordinate: string | undefined;
+  let whyCoordinate: string | undefined;
+  let publishDryRun = false;
 
   const positionals: string[] = [];
 
@@ -63,6 +69,8 @@ function parseArgs(argv: string[]): CliArgs {
     } else if (arg === "--name" && optionArgs[i + 1]) {
       initName = optionArgs[i + 1];
       i += 1;
+    } else if (arg === "--dry-run") {
+      publishDryRun = true;
     } else if (arg && !arg.startsWith("-")) {
       positionals.push(arg);
     }
@@ -78,6 +86,9 @@ function parseArgs(argv: string[]): CliArgs {
   if (commandRaw === PactiaCommand.Update) {
     updateCoordinate = positionals[0];
   }
+  if (commandRaw === PactiaCommand.Why) {
+    whyCoordinate = positionals[0];
+  }
 
   return {
     command: parseCommand(commandRaw),
@@ -88,6 +99,8 @@ function parseArgs(argv: string[]): CliArgs {
     addCoordinate,
     addRange,
     updateCoordinate,
+    whyCoordinate,
+    publishDryRun,
   };
 }
 
@@ -99,6 +112,8 @@ function printUsage(): void {
       "  pactia install [-C <workspace-dir>]\n" +
       "  pactia update [<@scope/name>] [-C <workspace-dir>]\n" +
       "  pactia build [-C <workspace-dir>] [-o <output-dir>]\n" +
+      "  pactia why <@scope/name> [-C <workspace-dir>]\n" +
+      "  pactia publish --dry-run [-C <package-dir>]\n" +
       "\n" +
       "Global options: --help, -h, --version, -v\n",
   );
@@ -111,7 +126,9 @@ function handleError(error: unknown): void {
     error instanceof ResolveError ||
     error instanceof InitError ||
     error instanceof InstallError ||
-    error instanceof UpdateError
+    error instanceof UpdateError ||
+    error instanceof WhyError ||
+    error instanceof PublishError
   ) {
     process.stderr.write(`error: ${error.message}\n`);
     process.exit(1);
@@ -207,6 +224,30 @@ async function runCommand(args: CliArgs): Promise<void> {
         process.stdout.write(`wrote ${relPath}\n`);
       }
       process.stdout.write(`Finished \`${args.command}\` at ${build.outputDir}\n`);
+      return;
+    }
+    case PactiaCommand.Why: {
+      if (!args.whyCoordinate) {
+        printUsage();
+        process.exit(1);
+        return;
+      }
+      const result = await runWhy({
+        workspaceRoot: args.workspaceRoot,
+        coordinate: args.whyCoordinate,
+      });
+      process.stdout.write(`${result.output}\n`);
+      return;
+    }
+    case PactiaCommand.Publish: {
+      const result = runPublish({
+        packageRoot: args.workspaceRoot,
+        dryRun: args.publishDryRun,
+      });
+      process.stdout.write(
+        `ok: ${result.name}@${result.version} at ${result.packageRoot}\n`,
+      );
+      process.stdout.write(`tag with: git tag v${result.version} && git push origin v${result.version}\n`);
       return;
     }
     default:

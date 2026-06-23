@@ -5,4 +5,6 @@ export enum PactiaCommand {
   Install = "install",
   Update = "update",
   Build = "build",
+  Why = "why",
+  Publish = "publish",
 }
