@@ -51,4 +51,18 @@ if ($pathEntries -notcontains $InstallDir) {
 }
 
 Write-Host "install-pactia: installed $tag -> $Dest"
-Write-Host "install-pactia: run 'pactia init my-product --stack rust-stack' in a new PowerShell window"
+
+$configDir = Join-Path $env:USERPROFILE ".pactia"
+$configFile = Join-Path $configDir "config.toml"
+if (-not (Test-Path $configFile)) {
+    New-Item -ItemType Directory -Force -Path $configDir | Out-Null
+    $configUrl = "https://raw.githubusercontent.com/$Repo/main/config/config.example.toml"
+    try {
+        Invoke-WebRequest -Uri $configUrl -OutFile $configFile -UseBasicParsing
+        Write-Host "install-pactia: wrote $configFile"
+    } catch {
+        Write-Warning "install-pactia: could not download config — copy pactia/config/config.example.toml to $configFile"
+    }
+}
+
+Write-Host "install-pactia: run 'pactia init my-product' then 'pactia add @pactia/rust-stack' in a new PowerShell window"

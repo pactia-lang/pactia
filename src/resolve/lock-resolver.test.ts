@@ -19,7 +19,7 @@ const pactiacPackages = join(
 );
 
 describe("resolveWorkspaceLock", () => {
-  it("writes pactia.lock with transitive kernel dependency", () => {
+  it("writes pactia.lock with transitive kernel dependency", async () => {
     if (!existsSync(pactiacPackages)) {
       return;
     }
@@ -42,7 +42,7 @@ describe("resolveWorkspaceLock", () => {
         "pactia 1.0\n\nproduct Demo {\n  module core {\n    service ApiService {\n      @api ping { method: GET, path: \"/ping\", }\n    }\n  }\n}\n",
       );
 
-      const result = resolveWorkspaceLock(workspace);
+      const result = await resolveWorkspaceLock(workspace);
       assert.equal(result.written, true);
       assert.ok(existsSync(join(workspace, "pactia.lock")));
 

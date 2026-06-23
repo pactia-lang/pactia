@@ -1,0 +1,17 @@
+# Copy to ~/.pactia/config.toml — pactia reads all git/api bases from here (nothing hardcoded in the CLI).
+
+[source."@pactia/"]
+git = "https://github.com/pactia-io"
+
+[hosts."github.com"]
+git = "https://github.com"
+api = "https://api.github.com"
+token = "env:PACTIA_GITHUB_TOKEN"
+
+[hosts."gitlab.com"]
+git = "https://gitlab.com"
+api = "https://gitlab.com/api/v4"
+token = "env:PACTIA_GITLAB_TOKEN"
+
+[defaults]
+prefer = "http"

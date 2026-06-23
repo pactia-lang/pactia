@@ -54,5 +54,17 @@ install_dir="${INSTALL_DIR:-$HOME/.local/bin}"
 mkdir -p "$install_dir"
 install -m 755 "$tmpdir/pactia" "$install_dir/pactia"
 
+config_dir="${HOME}/.pactia"
+config_file="${config_dir}/config.toml"
+if [[ ! -f "$config_file" ]]; then
+  mkdir -p "$config_dir"
+  config_url="https://raw.githubusercontent.com/${repo}/main/config/config.example.toml"
+  if curl -fsSL "$config_url" -o "$config_file"; then
+    echo "install-pactia: wrote ${config_file}"
+  else
+    echo "install-pactia: warning: could not download config — copy pactia/config/config.example.toml to ${config_file}" >&2
+  fi
+fi
+
 echo "install-pactia: installed to ${install_dir}/pactia"
 echo "install-pactia: ensure ${install_dir} is on your PATH"

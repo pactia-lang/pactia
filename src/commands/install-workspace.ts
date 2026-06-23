@@ -3,42 +3,42 @@ import { resolveWorkspaceLock } from "../resolve/lock-resolver.js";
 import { ensureVendoredPackages, VendorError } from "../vendor/ensure-vendored.js";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
 
-export interface FetchOptions {
-  readonly workspaceRoot?: string;
-}
-
-export interface FetchResult {
+export interface InstallWorkspaceResult {
   readonly workspaceRoot: string;
   readonly lockWritten: boolean;
-  readonly fetched: readonly string[];
+  readonly installed: readonly string[];
   readonly vendoredPackages: readonly string[];
 }
 
-export class FetchError extends Error {
+export class InstallWorkspaceError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "FetchError";
+    this.name = "InstallWorkspaceError";
   }
 }
 
-export function runFetch(options: FetchOptions = {}): FetchResult {
+export async function installWorkspacePackages(
+  workspaceRootInput?: string,
+): Promise<InstallWorkspaceResult> {
   let workspaceRoot: string;
   try {
-    workspaceRoot = options.workspaceRoot
-      ? resolve(options.workspaceRoot)
+    workspaceRoot = workspaceRootInput
+      ? resolve(workspaceRootInput)
       : findWorkspaceRoot();
   } catch (error) {
-    throw error instanceof WorkspaceError ? error : new FetchError(String(error));
+    throw error instanceof WorkspaceError
+      ? error
+      : new InstallWorkspaceError(String(error));
   }
 
-  const resolved = resolveWorkspaceLock(workspaceRoot);
+  const resolved = await resolveWorkspaceLock(workspaceRoot);
 
   let vendoredPackages: readonly string[] = [];
   try {
     vendoredPackages = ensureVendoredPackages(workspaceRoot, resolved.lock);
   } catch (error) {
     if (error instanceof VendorError) {
-      throw new FetchError(error.message);
+      throw new InstallWorkspaceError(error.message);
     }
     throw error;
   }
@@ -46,7 +46,7 @@ export function runFetch(options: FetchOptions = {}): FetchResult {
   return {
     workspaceRoot,
     lockWritten: resolved.written,
-    fetched: resolved.fetched,
+    installed: resolved.fetched,
     vendoredPackages,
   };
 }

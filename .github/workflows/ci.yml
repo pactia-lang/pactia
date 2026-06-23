@@ -89,7 +89,8 @@ jobs:
         working-directory: pactia
         run: |
           DEMO=$(mktemp -d)
-          node dist/cli.js init "$DEMO/demo" --name DemoProduct --stack rust-stack
+          node dist/cli.js init "$DEMO/demo" --name DemoProduct
+          node dist/cli.js add rust-stack -C "$DEMO/demo"
           node dist/cli.js build -C "$DEMO/demo" -o "$DEMO/out"
           test -f "$DEMO/out/input/product.json"
 
@@ -97,7 +98,7 @@ jobs:
         working-directory: pactia
         run: |
           DEMO=$(mktemp -d)
-          node dist/cli.js init "$DEMO/demo" --stack rust-stack
+          node dist/cli.js init "$DEMO/demo"
           node dist/cli.js add html-css-js -C "$DEMO/demo"
           grep -q '"@pactia/html-css-js"' "$DEMO/demo/pactia.toml"
           test -f "$DEMO/demo/pactia.lock"

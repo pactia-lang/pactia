@@ -6,7 +6,7 @@ import {
   type PactiaLockManifest,
 } from "@pactia/pactiac";
 import { ResolveError, ResolveErrorCode } from "../domain/resolve-error.js";
-import { materializePackageCache } from "../fetch/fetch-package.js";
+import { materializePackageCache } from "../install/install-package.js";
 import {
   findIndexedPackage,
   listVersionsInIndex,
@@ -15,6 +15,7 @@ import {
 } from "./package-index.js";
 import { serializePactiaLock } from "./lock-file.js";
 import { pickBestVersion } from "./semver.js";
+import { listRemoteVersions } from "./package-tags.js";
 import { parseWorkspaceToml } from "./workspace-toml.js";
 import { packageSearchRoots } from "../vendor/cache-paths.js";
 
@@ -45,17 +46,20 @@ function readPackageDependencies(packageDir: string): ReadonlyMap<string, string
   return parsePackageToml(readFileSync(manifestPath, "utf8")).dependencies;
 }
 
-function resolveVersion(
+async function resolveVersion(
   index: readonly IndexedPackageVersion[],
   coordinate: string,
   range: string,
-): { version: string; localDir?: string } {
-  const available = listVersionsInIndex(index, coordinate);
+): Promise<{ version: string; localDir?: string }> {
+  const localVersions = listVersionsInIndex(index, coordinate);
+  const remoteVersions =
+    localVersions.length === 0 ? await listRemoteVersions(coordinate) : [];
+  const available = [...new Set([...localVersions, ...remoteVersions])];
   const version = pickBestVersion(available, range);
   if (!version) {
     throw new ResolveError(
       ResolveErrorCode.VersionNotFound,
-      `No version of '${coordinate}' satisfies '${range}' in local indexes`,
+      `No version of '${coordinate}' satisfies '${range}'`,
     );
   }
 
@@ -63,7 +67,7 @@ function resolveVersion(
   return { version, localDir: indexed?.rootDir };
 }
 
-export function resolveWorkspaceLock(workspaceRoot: string): ResolvedLock {
+export async function resolveWorkspaceLock(workspaceRoot: string): Promise<ResolvedLock> {
   const tomlPath = join(workspaceRoot, "pactia.toml");
   const lockPath = join(workspaceRoot, "pactia.lock");
 
@@ -92,12 +96,12 @@ export function resolveWorkspaceLock(workspaceRoot: string): ResolvedLock {
     if (seen.has(pending.coordinate)) continue;
     seen.add(pending.coordinate);
 
-    const { version, localDir } = resolveVersion(
+    const { version, localDir } = await resolveVersion(
       index,
       pending.coordinate,
       pending.range,
     );
-    const cacheDir = materializePackageCache(
+    const cacheDir = await materializePackageCache(
       pending.coordinate,
       version,
       localDir,

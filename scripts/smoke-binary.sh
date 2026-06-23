@@ -31,7 +31,8 @@ export PACTIA_VENDOR_ROOT="$vendor_root"
 "$binary" build -C "$website_workspace" -o "$out_dir"
 test -f "$out_dir/input/product.json"
 
-"$binary" init "$demo_dir/demo" --name SmokeDemo --stack rust-stack
+"$binary" init "$demo_dir/demo" --name SmokeDemo
+"$binary" add rust-stack -C "$demo_dir/demo"
 "$binary" build -C "$demo_dir/demo" -o "$demo_dir/out"
 test -f "$demo_dir/out/input/product.json"
 

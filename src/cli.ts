@@ -1,9 +1,12 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PactiaCommand } from "./domain/pactia-command.js";
 import { runAdd } from "./commands/add.js";
 import { runBuild, BuildError } from "./commands/build.js";
-import { runFetch, FetchError } from "./commands/fetch.js";
-import { runInit, InitError, parseProductStack } from "./commands/init.js";
+import { runInstall, InstallError } from "./commands/install.js";
+import { runInit, InitError } from "./commands/init.js";
 import { ResolveError } from "./domain/resolve-error.js";
 import { WorkspaceError } from "./workspace/find-workspace.js";
 
@@ -13,9 +16,20 @@ interface CliArgs {
   readonly outputDir: string | undefined;
   readonly initDirectory: string | undefined;
   readonly initName: string | undefined;
-  readonly initStack: string | undefined;
   readonly addCoordinate: string | undefined;
   readonly addRange: string | undefined;
+}
+
+function cliVersion(): string {
+  const packageJsonPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "package.json",
+  );
+  const manifest = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+    version?: string;
+  };
+  return manifest.version ?? "0.0.0";
 }
 
 function parseCommand(value: string): PactiaCommand | undefined {
@@ -30,7 +44,6 @@ function parseArgs(argv: string[]): CliArgs {
   let outputDir: string | undefined;
   let initDirectory: string | undefined;
   let initName: string | undefined;
-  let initStack: string | undefined;
   let addCoordinate: string | undefined;
   let addRange: string | undefined;
 
@@ -46,9 +59,6 @@ function parseArgs(argv: string[]): CliArgs {
       i += 1;
     } else if (arg === "--name" && optionArgs[i + 1]) {
       initName = optionArgs[i + 1];
-      i += 1;
-    } else if (arg === "--stack" && optionArgs[i + 1]) {
-      initStack = optionArgs[i + 1];
       i += 1;
     } else if (arg && !arg.startsWith("-")) {
       positionals.push(arg);
@@ -69,7 +79,6 @@ function parseArgs(argv: string[]): CliArgs {
     outputDir,
     initDirectory,
     initName,
-    initStack,
     addCoordinate,
     addRange,
   };
@@ -78,10 +87,12 @@ function parseArgs(argv: string[]): CliArgs {
 function printUsage(): void {
   process.stderr.write(
     "Usage:\n" +
-      "  pactia init <dir> [--name <ProductName>] [--stack rust-stack|html-css-js]\n" +
+      "  pactia init <dir> [--name <ProductName>]\n" +
       "  pactia add <@scope/name> [range] [-C <workspace-dir>]\n" +
-      "  pactia fetch [-C <workspace-dir>]\n" +
-      "  pactia build [-C <workspace-dir>] [-o <output-dir>]\n",
+      "  pactia install [-C <workspace-dir>]\n" +
+      "  pactia build [-C <workspace-dir>] [-o <output-dir>]\n" +
+      "\n" +
+      "Global options: --help, -h, --version, -v\n",
   );
 }
 
@@ -91,7 +102,7 @@ function handleError(error: unknown): void {
     error instanceof WorkspaceError ||
     error instanceof ResolveError ||
     error instanceof InitError ||
-    error instanceof FetchError
+    error instanceof InstallError
   ) {
     process.stderr.write(`error: ${error.message}\n`);
     process.exit(1);
@@ -100,7 +111,7 @@ function handleError(error: unknown): void {
   throw error;
 }
 
-function runCommand(args: CliArgs): void {
+async function runCommand(args: CliArgs): Promise<void> {
   switch (args.command) {
     case PactiaCommand.Init: {
       if (!args.initDirectory) {
@@ -111,10 +122,9 @@ function runCommand(args: CliArgs): void {
       const result = runInit({
         directory: args.initDirectory,
         name: args.initName,
-        stack: parseProductStack(args.initStack),
       });
       process.stdout.write(
-        `Initialized '${result.productName}' at ${result.workspaceRoot} (${result.stack})\n`,
+        `Initialized '${result.productName}' at ${result.workspaceRoot}\n`,
       );
       return;
     }
@@ -124,7 +134,7 @@ function runCommand(args: CliArgs): void {
         process.exit(1);
         return;
       }
-      const result = runAdd({
+      const result = await runAdd({
         workspaceRoot: args.workspaceRoot,
         coordinate: args.addCoordinate,
         range: args.addRange,
@@ -132,24 +142,27 @@ function runCommand(args: CliArgs): void {
       if (result.lockWritten) {
         process.stdout.write(`updated pactia.lock\n`);
       }
-      if (result.fetched.length > 0) {
-        process.stdout.write(`fetched ${result.fetched.join(", ")}\n`);
-      }
-      process.stdout.write(`added ${result.coordinate} = "${result.range}"\n`);
-      return;
-    }
-    case PactiaCommand.Fetch: {
-      const result = runFetch({ workspaceRoot: args.workspaceRoot });
-      if (result.lockWritten) {
-        process.stdout.write(`updated pactia.lock\n`);
-      }
-      if (result.fetched.length > 0) {
-        process.stdout.write(`fetched ${result.fetched.join(", ")}\n`);
+      if (result.installed.length > 0) {
+        process.stdout.write(`installed ${result.installed.join(", ")}\n`);
       }
       if (result.vendoredPackages.length > 0) {
         process.stdout.write(`vendored ${result.vendoredPackages.join(", ")}\n`);
       }
-      process.stdout.write(`Finished fetch at ${result.workspaceRoot}\n`);
+      process.stdout.write(`added ${result.coordinate} = "${result.range}"\n`);
+      return;
+    }
+    case PactiaCommand.Install: {
+      const result = await runInstall({ workspaceRoot: args.workspaceRoot });
+      if (result.lockWritten) {
+        process.stdout.write(`updated pactia.lock\n`);
+      }
+      if (result.installed.length > 0) {
+        process.stdout.write(`installed ${result.installed.join(", ")}\n`);
+      }
+      if (result.vendoredPackages.length > 0) {
+        process.stdout.write(`vendored ${result.vendoredPackages.join(", ")}\n`);
+      }
+      process.stdout.write(`Finished install at ${result.workspaceRoot}\n`);
       return;
     }
     case PactiaCommand.Build: {
@@ -157,7 +170,7 @@ function runCommand(args: CliArgs): void {
         workspaceRoot: args.workspaceRoot,
         outputDir: args.outputDir,
       };
-      const build = runBuild(options);
+      const build = await runBuild(options);
 
       if (build.lockWritten) {
         process.stdout.write("updated pactia.lock\n");
@@ -177,8 +190,22 @@ function runCommand(args: CliArgs): void {
   }
 }
 
-function main(): void {
-  const args = parseArgs(process.argv.slice(2));
+async function main(): Promise<void> {
+  const argv = process.argv.slice(2);
+
+  if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
+    printUsage();
+    process.exit(argv.length === 0 ? 1 : 0);
+    return;
+  }
+
+  if (argv.includes("--version") || argv.includes("-v")) {
+    process.stdout.write(`pactia ${cliVersion()}\n`);
+    process.exit(0);
+    return;
+  }
+
+  const args = parseArgs(argv);
   if (!args.command) {
     printUsage();
     process.exit(1);
@@ -186,10 +213,12 @@ function main(): void {
   }
 
   try {
-    runCommand(args);
+    await runCommand(args);
   } catch (error) {
     handleError(error);
   }
 }
 
-main();
+main().catch((error) => {
+  handleError(error);
+});
