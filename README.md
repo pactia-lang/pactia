@@ -8,10 +8,11 @@ Package manager for Pactia workspaces. Resolves dependencies, vendors packages, 
 pactia init <dir> [--name <ProductName>]
 pactia add <@scope/name> [range] [-C <workspace-dir>]
 pactia install [-C <workspace-dir>]
+pactia update [<@scope/name>] [-C <workspace-dir>]
 pactia build [-C <workspace-dir>] [-o <output-dir>]   # default output: out/
 ```
 
-`pactia install` and `pactia build` resolve semver ranges, write `pactia.lock`, download dependencies into the global cache, and copy pinned packages into the workspace vendor directory. Configure remotes in `~/.pactia/config.toml` (see `config/config.example.toml`). Set `PACTIA_VENDOR_ROOT` for a local package index during development.
+`pactia add` and `pactia update` resolve semver ranges and write `pactia.lock`. `pactia install` and `pactia build` use the lock only (pinned versions, digest verify). Dependencies download into `~/.pactia/packages/` and copy into `.pactia/packages/`. Configure remotes in `~/.pactia/config.toml` (see `config/config.example.toml`). Set `PACTIA_VENDOR_ROOT` for a local package index during development.
 
 Planned: `publish`.
 
@@ -160,7 +161,7 @@ npm test
 pactia/
   src/
     cli.ts
-    commands/         init, add, install, build
+    commands/         init, add, install, update, build
     vendor/           lock → .pactia/packages/
     workspace/        find pactia.toml + product.pactia
   scripts/
