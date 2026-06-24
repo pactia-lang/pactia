@@ -3,7 +3,7 @@
 # Usage (PowerShell):
 #   irm https://raw.githubusercontent.com/pactia-lang/pactia/main/scripts/install-pactia.ps1 | iex
 #   .\scripts\install-pactia.ps1
-#   .\scripts\install-pactia.ps1 -Version v0.1.0
+#   .\scripts\install-pactia.ps1 -Version v0.2.0
 #
 # Installs to %USERPROFILE%\.local\bin\pactia.exe and adds that folder to the user PATH.
 param(

@@ -127,7 +127,7 @@ The install script picks the right asset (Intel vs Apple Silicon on Mac):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pactia-lang/pactia/main/scripts/install-pactia.sh | bash
-./scripts/install-pactia.sh v0.1.0
+./scripts/install-pactia.sh v0.2.0
 ```
 
 Installs to `~/.local/bin/pactia`. Ensure that directory is on your `PATH` (e.g. in `~/.zshrc` on macOS).
