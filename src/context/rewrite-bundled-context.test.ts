@@ -8,7 +8,7 @@ describe("rewriteBundledContextInValue", () => {
       product: {
         context: [
           {
-            id: "notes",
+            name: "notes",
             path: "./docs/api.md",
             package: "@pactia/kernel",
           },
@@ -18,7 +18,7 @@ describe("rewriteBundledContextInValue", () => {
 
     const output = rewriteBundledContextInValue(input) as typeof input;
     assert.deepEqual(output.product.context[0], {
-      id: "notes",
+      name: "notes",
       path: "context/docs/api.md",
     });
   });
@@ -28,7 +28,7 @@ describe("rewriteBundledContextInValue", () => {
       modules: [
         {
           module: {
-            context: [{ id: "runbooks", path: ["./ops/a.md", "./ops/b.md"] }],
+            context: [{ name: "runbooks", path: ["./ops/a.md", "./ops/b.md"] }],
           },
         },
       ],
