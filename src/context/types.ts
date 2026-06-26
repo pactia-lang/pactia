@@ -4,7 +4,7 @@ export enum ContextPathKind {
 }
 
 export interface ContextIrEntry {
-  readonly id: string;
+  readonly name: string;
   readonly path: string | readonly string[];
   readonly guidance?: readonly string[];
   readonly package?: string;
@@ -16,7 +16,7 @@ export interface ContextIndexedFile {
 }
 
 export interface ContextIndexEntry {
-  readonly id: string;
+  readonly name: string;
   readonly scope: string;
   readonly path: string | readonly string[];
   readonly files: readonly ContextIndexedFile[];

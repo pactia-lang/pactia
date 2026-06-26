@@ -40,14 +40,19 @@ When vendoring, pactia looks for packages in this order: workspace `.pactia/pack
 
 ## Workspace layout
 
+Folder names are **convention only**. Assembly is **import + attach** in `product.pactia` — fragment paths can point anywhere.
+
 ```
 my-product/
-  pactia.toml           # [package] + [dependencies]
-  pactia.lock           # pinned dependency versions
-  product.pactia        # package imports + attach (fragments do not import @pactia/*)
-  fragments/…           # attached modules
-  .pactia/packages/     # vendored deps (copied from ~/.pactia/packages/ on install/build)
-  out/                  # compile output (default)
+  pactia.toml
+  pactia.lock
+  product.pactia        # package imports + fragment imports + attach tree
+  context/              # optional — external files for context { path: … }
+  modules/…             # common convention (PPM)
+  fragments/…         # common convention (relay, marketplace)
+  .pactia/packages/
+  out/
+    input/              # IR tree
 ```
 
 ## Manifest
@@ -71,7 +76,7 @@ Multi-file workspaces use **import + attach** in `product.pactia`:
 - **Package imports** (`import { @api, #database, … } from @pactia/kernel`) — declare tags and macros once at product scope. `pactia.toml` / `pactia.lock` pin versions; vendored packages land in `.pactia/packages/`.
 - **Fragment imports** (`import { CatalogAdminService } from ./fragments/…`) — register `export module` / `export service` / `export model` symbols for attach only.
 
-Fragment files do **not** repeat `import … from @pactia/…`. On `pactia build`, pactiac merges attach bodies into one program; product-level package imports apply to all inlined fragments.
+Fragment files do **not** repeat `import … from @pactia/…` (pactiac warns with `FRAGMENT_PACKAGE_IMPORT` if they do). On `pactia build`, pactiac merges attach bodies into one program; product-level package imports apply to all inlined fragments. Context attachments lower to `context[]` with `name`; `pactia build` writes `context.index.json` using the same `name` field.
 
 ```pactia
 // product.pactia

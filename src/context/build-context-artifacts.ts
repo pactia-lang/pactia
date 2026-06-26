@@ -77,12 +77,12 @@ export function buildContextArtifacts(
       const files = resolveContextFiles(workspaceRoot, options.lock, contextEntry);
       if (files.length > CONTEXT_FILE_WARN_THRESHOLD) {
         warnings.push(
-          `context '${contextEntry.id}' in scope '${scope}' includes ${files.length} files (warn threshold ${CONTEXT_FILE_WARN_THRESHOLD})`,
+          `context '${contextEntry.name}' in scope '${scope}' includes ${files.length} files (warn threshold ${CONTEXT_FILE_WARN_THRESHOLD})`,
         );
       }
       if (files.length > CONTEXT_FILE_ERROR_THRESHOLD) {
         throw new ContextBuildError(
-          `context '${contextEntry.id}' in scope '${scope}' includes ${files.length} files (limit ${CONTEXT_FILE_ERROR_THRESHOLD})`,
+          `context '${contextEntry.name}' in scope '${scope}' includes ${files.length} files (limit ${CONTEXT_FILE_ERROR_THRESHOLD})`,
         );
       }
 
@@ -105,7 +105,7 @@ export function buildContextArtifacts(
         : contextEntry.path;
 
       entries.push({
-        id: contextEntry.id,
+        name: contextEntry.name,
         scope,
         path: indexPathValue,
         files: indexedFiles,
@@ -233,23 +233,30 @@ function extractContextEntries(slice: Record<string, unknown>): ContextIrEntry[]
       continue;
     }
     for (const item of rawContext) {
-      if (!item || typeof item !== "object" || Array.isArray(item)) {
-        continue;
+      const parsed = parseContextIrEntry(item);
+      if (parsed) {
+        contexts.push(parsed);
       }
-      const entry = item as Record<string, unknown>;
-      const id = entry["id"];
-      const path = entry["path"];
-      if (typeof id !== "string" || (typeof path !== "string" && !Array.isArray(path))) {
-        continue;
-      }
-      const guidance = Array.isArray(entry["guidance"])
-        ? entry["guidance"].filter((line): line is string => typeof line === "string")
-        : undefined;
-      const pkg = typeof entry["package"] === "string" ? entry["package"] : undefined;
-      contexts.push({ id, path, guidance, package: pkg });
     }
   }
   return contexts;
+}
+
+function parseContextIrEntry(item: unknown): ContextIrEntry | undefined {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return undefined;
+  }
+  const entry = item as Record<string, unknown>;
+  const name = entry["name"];
+  const path = entry["path"];
+  if (typeof name !== "string" || (typeof path !== "string" && !Array.isArray(path))) {
+    return undefined;
+  }
+  const guidance = Array.isArray(entry["guidance"])
+    ? entry["guidance"].filter((line): line is string => typeof line === "string")
+    : undefined;
+  const pkg = typeof entry["package"] === "string" ? entry["package"] : undefined;
+  return { name, path, guidance, package: pkg };
 }
 
 function resolveContextFiles(
@@ -266,7 +273,7 @@ function resolveContextFiles(
       : workspaceRoot;
     const absolute = resolve(root, normalizeRelativePath(authoredPath));
     if (!existsSync(absolute)) {
-      throw new ContextBuildError(`context '${entry.id}' path does not exist: ${authoredPath}`);
+      throw new ContextBuildError(`context '${entry.name}' path does not exist: ${authoredPath}`);
     }
     resolved.push(...expandContextPath(absolute, authoredPath));
   }

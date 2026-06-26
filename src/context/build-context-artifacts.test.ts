@@ -20,7 +20,7 @@ describe("buildContextArtifacts", () => {
           name: "Demo",
           context: [
             {
-              id: "api_notes",
+              name: "api_notes",
               path: "./docs/api.md",
               provenance: "Pactia",
             },
@@ -41,9 +41,9 @@ describe("buildContextArtifacts", () => {
     assert.equal(result.indexPath, "input/context.index.json");
     assert.ok(existsSync(join(outputDir, "input", "context.index.json")));
     const index = JSON.parse(readFileSync(join(outputDir, "input", "context.index.json"), "utf8")) as {
-      entries: Array<{ id: string; files: Array<{ digest: string }> }>;
+      entries: Array<{ name: string; files: Array<{ digest: string }> }>;
     };
-    assert.equal(index.entries[0]?.id, "api_notes");
+    assert.equal(index.entries[0]?.name, "api_notes");
     assert.equal(index.entries[0]?.path, "context/docs/api.md");
     assert.equal(index.entries[0]?.files[0]?.path, "context/docs/api.md");
     assert.match(index.entries[0]?.files[0]?.digest ?? "", /^sha256:/);
@@ -69,7 +69,7 @@ describe("buildContextArtifacts", () => {
       JSON.stringify({
         product: {
           name: "Demo",
-          context: [{ id: "api_notes", path: "./docs/api.md" }],
+          context: [{ name: "api_notes", path: "./docs/api.md" }],
         },
       }),
       "utf8",

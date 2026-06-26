@@ -6,6 +6,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Context index** — `context.index.json` entries use `name` (aligned with pactiac `context[]` IR)
+
 ## [0.2.0] - 2026-06-24
 
 Package manager v0.2 — install workflow, config-driven remotes, context bundle on build.

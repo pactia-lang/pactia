@@ -76,7 +76,9 @@ export async function runBuild(options: BuildOptions = {}): Promise<BuildResult>
 
   let contextIndexPath: string | undefined;
   const contextWarnings: string[] = [];
-  const hasContextIr = [...compileResult.files.values()].some((content) => content.includes('"context"'));
+  const hasContextIr = [...compileResult.files.values()].some((content) =>
+    content.includes('"context"'),
+  );
   if (hasContextIr) {
     try {
       const contextResult = buildContextArtifacts({
