@@ -12,6 +12,7 @@ export interface CliArgs {
   readonly whyCoordinate: string | undefined;
   readonly publishDryRun: boolean;
   readonly bundleContext: boolean;
+  readonly json: boolean;
 }
 
 export function parseCommand(value: string): PactiaCommand | undefined {
@@ -32,6 +33,7 @@ export function parseArgs(argv: string[]): CliArgs {
   let whyCoordinate: string | undefined;
   let publishDryRun = false;
   let bundleContext = true;
+  let json = false;
 
   const positionals: string[] = [];
 
@@ -50,6 +52,8 @@ export function parseArgs(argv: string[]): CliArgs {
       publishDryRun = true;
     } else if (arg === "--no-bundle-context") {
       bundleContext = false;
+    } else if (arg === "--json") {
+      json = true;
     } else if (arg && !arg.startsWith("-")) {
       positionals.push(arg);
     }
@@ -81,6 +85,7 @@ export function parseArgs(argv: string[]): CliArgs {
     whyCoordinate,
     publishDryRun,
     bundleContext,
+    json,
   };
 }
 
@@ -94,7 +99,9 @@ export function printUsage(): void {
       "  pactia build [-C <workspace-dir>] [-o <output-dir>] [--no-bundle-context]\n" +
       "  pactia why <@scope/name> [-C <workspace-dir>]\n" +
       "  pactia publish --dry-run [-C <package-dir>]\n" +
+      "  pactia outdated [-C <workspace-dir>] [--json]\n" +
+      "  pactia clean [-C <workspace-dir>] [-o <output-dir>]\n" +
       "\n" +
-      "Global options: --help, -h, --version, -v\n",
+      "Global options: --help, -h, --version, -v, --json\n",
   );
 }

@@ -7,4 +7,6 @@ export enum PactiaCommand {
   Build = "build",
   Why = "why",
   Publish = "publish",
+  Outdated = "outdated",
+  Clean = "clean",
 }

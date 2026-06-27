@@ -11,6 +11,8 @@ import { runInit, InitError } from "./commands/init.js";
 import { runPublish, PublishError } from "./commands/publish.js";
 import { runUpdate, UpdateError } from "./commands/update.js";
 import { runWhy, WhyError } from "./commands/why.js";
+import { runOutdated, OutdatedError } from "./commands/outdated.js";
+import { runClean, CleanError } from "./commands/clean.js";
 import { ResolveError } from "./domain/resolve-error.js";
 import { WorkspaceError } from "./workspace/find-workspace.js";
 
@@ -35,7 +37,9 @@ function handleError(error: unknown): void {
     error instanceof InstallError ||
     error instanceof UpdateError ||
     error instanceof WhyError ||
-    error instanceof PublishError
+    error instanceof PublishError ||
+    error instanceof OutdatedError ||
+    error instanceof CleanError
   ) {
     process.stderr.write(`error: ${error.message}\n`);
     process.exit(1);
@@ -125,16 +129,22 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       };
       const build = await runBuild(options);
 
-      if (build.vendoredPackages.length > 0) {
-        process.stdout.write(`vendored ${build.vendoredPackages.join(", ")}\n`);
+      if (args.json) {
+        process.stdout.write(
+          `${JSON.stringify({ outputDir: build.outputDir, filesWritten: build.filesWritten, vendoredPackages: build.vendoredPackages })}\n`,
+        );
+      } else {
+        if (build.vendoredPackages.length > 0) {
+          process.stdout.write(`vendored ${build.vendoredPackages.join(", ")}\n`);
+        }
+        for (const warning of build.contextWarnings) {
+          process.stderr.write(`warning: ${warning}\n`);
+        }
+        for (const relPath of build.filesWritten) {
+          process.stdout.write(`wrote ${relPath}\n`);
+        }
+        process.stdout.write(`Finished \`${args.command}\` at ${build.outputDir}\n`);
       }
-      for (const warning of build.contextWarnings) {
-        process.stderr.write(`warning: ${warning}\n`);
-      }
-      for (const relPath of build.filesWritten) {
-        process.stdout.write(`wrote ${relPath}\n`);
-      }
-      process.stdout.write(`Finished \`${args.command}\` at ${build.outputDir}\n`);
       return;
     }
     case PactiaCommand.Why: {
@@ -147,7 +157,13 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
         workspaceRoot: args.workspaceRoot,
         coordinate: args.whyCoordinate,
       });
-      process.stdout.write(`${result.output}\n`);
+      if (args.json) {
+        process.stdout.write(
+          `${JSON.stringify({ coordinate: result.coordinate, output: result.output })}\n`,
+        );
+      } else {
+        process.stdout.write(`${result.output}\n`);
+      }
       return;
     }
     case PactiaCommand.Publish: {
@@ -161,6 +177,42 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       process.stdout.write(
         `tag with: git tag v${result.version} && git push origin v${result.version}\n`,
       );
+      return;
+    }
+    case PactiaCommand.Outdated: {
+      const result = await runOutdated({
+        workspaceRoot: args.workspaceRoot,
+        json: args.json,
+      });
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(result.entries)}\n`);
+      } else {
+        if (result.entries.length === 0) {
+          process.stdout.write("All dependencies are up to date.\n");
+        } else {
+          for (const entry of result.entries) {
+            if (entry.latest) {
+              process.stdout.write(`${entry.coordinate} ${entry.current} → ${entry.latest}\n`);
+            } else {
+              process.stdout.write(`${entry.coordinate} ${entry.current} (could not check)\n`);
+            }
+          }
+        }
+      }
+      return;
+    }
+    case PactiaCommand.Clean: {
+      const result = runClean({
+        workspaceRoot: args.workspaceRoot,
+        outputDir: args.outputDir,
+      });
+      if (result.removed.length > 0) {
+        for (const path of result.removed) {
+          process.stdout.write(`removed ${path}\n`);
+        }
+      } else {
+        process.stdout.write("Nothing to clean.\n");
+      }
       return;
     }
     default:
