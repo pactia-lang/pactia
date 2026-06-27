@@ -39,4 +39,29 @@ describe("parseArgs", () => {
     assert.equal(args.command, PactiaCommand.Build);
     assert.equal(args.bundleContext, false);
   });
+
+  it("parses outdated command", () => {
+    const args = parseArgs(["outdated", "-C", "/tmp/ws"]);
+    assert.equal(args.command, PactiaCommand.Outdated);
+    assert.equal(args.workspaceRoot, "/tmp/ws");
+  });
+
+  it("parses clean command", () => {
+    const args = parseArgs(["clean", "-C", "/tmp/ws", "-o", "dist"]);
+    assert.equal(args.command, PactiaCommand.Clean);
+    assert.equal(args.workspaceRoot, "/tmp/ws");
+    assert.equal(args.outputDir, "dist");
+  });
+
+  it("parses --json flag", () => {
+    const args = parseArgs(["build", "--json", "-C", "/tmp/ws"]);
+    assert.equal(args.command, PactiaCommand.Build);
+    assert.equal(args.json, true);
+  });
+
+  it("parses outdated --json", () => {
+    const args = parseArgs(["outdated", "--json", "-C", "/tmp/ws"]);
+    assert.equal(args.command, PactiaCommand.Outdated);
+    assert.equal(args.json, true);
+  });
 });
