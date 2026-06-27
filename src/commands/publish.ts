@@ -10,6 +10,7 @@ export enum PublishValidationCode {
   InvalidName = "INVALID_NAME",
   InvalidVersion = "INVALID_VERSION",
   IndexHeaderMissing = "INDEX_HEADER_MISSING",
+  ConstantDefRequired = "CONSTANT_DEF_REQUIRED",
 }
 
 export interface PublishValidationIssue {
@@ -80,6 +81,15 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
     issues.push({
       code: PublishValidationCode.IndexHeaderMissing,
       message: "index.pactia must start with a pactia version line (e.g. pactia 1.0)",
+    });
+  }
+
+  // Validate constant syntax: warn on bare `export name = value` without `def`
+  const bareConstantPattern = /^export\s+(?!def\b)(?!module\b)(?!service\b)(?!model\b)(?!context\b)\w+\s*=/m;
+  if (bareConstantPattern.test(indexSource)) {
+    issues.push({
+      code: PublishValidationCode.ConstantDefRequired,
+      message: "index.pactia contains 'export name = value' without 'def' — use 'export def name = value'",
     });
   }
 
