@@ -28,7 +28,7 @@ export class OutdatedError extends Error {
   }
 }
 
-function compareSemver(left: SemverParts, right: SemverParts): number {
+export function compareSemver(left: SemverParts, right: SemverParts): number {
   if (left.major !== right.major) return left.major - right.major;
   if (left.minor !== right.minor) return left.minor - right.minor;
   return left.patch - right.patch;

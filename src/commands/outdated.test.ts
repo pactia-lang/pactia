@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
-import { runOutdated } from "./outdated.js";
+import { runOutdated, compareSemver } from "./outdated.js";
 
 test("runOutdated reports packages from lock file", async () => {
   const tmp = join(tmpdir(), `pactia-test-outdated-${Date.now()}`);
@@ -106,3 +106,20 @@ test("runOutdated handles invalid semver gracefully", async () => {
     rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test("compareSemver compares major versions", () => {
+  assert.equal(compareSemver({ major: 1, minor: 0, patch: 0 }, { major: 2, minor: 0, patch: 0 }), -1);
+  assert.equal(compareSemver({ major: 2, minor: 0, patch: 0 }, { major: 1, minor: 0, patch: 0 }), 1);
+  assert.equal(compareSemver({ major: 1, minor: 0, patch: 0 }, { major: 1, minor: 0, patch: 0 }), 0);
+});
+
+test("compareSemver compares minor versions", () => {
+  assert.equal(compareSemver({ major: 1, minor: 1, patch: 0 }, { major: 1, minor: 2, patch: 0 }), -1);
+  assert.equal(compareSemver({ major: 1, minor: 2, patch: 0 }, { major: 1, minor: 1, patch: 0 }), 1);
+});
+
+test("compareSemver compares patch versions", () => {
+  assert.equal(compareSemver({ major: 1, minor: 0, patch: 1 }, { major: 1, minor: 0, patch: 2 }), -1);
+  assert.equal(compareSemver({ major: 1, minor: 0, patch: 2 }, { major: 1, minor: 0, patch: 1 }), 1);
+});
+
