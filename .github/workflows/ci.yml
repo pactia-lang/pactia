@@ -46,9 +46,16 @@ jobs:
         working-directory: pactiac
         run: npm ci && npm run build
 
-      - name: Test pactia
+      - name: Test pactia with coverage
         working-directory: pactia
-        run: npm ci && npm test
+        run: npm ci && npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          working-directory: pactia
+          files: pactia/coverage/lcov.info
+          fail_ci_if_error: false
 
   integration:
     name: integration
