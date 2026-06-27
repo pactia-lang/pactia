@@ -8,6 +8,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **`pactia outdated`** — compares lock versions against available git tags, shows newer versions
+- **`pactia clean`** — removes `.pactia/packages/` and build output (`out/` or custom `-o`)
+- **`--json` flag** — structured JSON output on `outdated`, `why`, `build` for CI scripting
 - **Config auto-copy in install script** — `install-pactia.sh` downloads `config.example.toml` to `~/.pactia/config.toml` on first install
 
 ### Changed
