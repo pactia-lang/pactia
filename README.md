@@ -1,5 +1,10 @@
 # pactia
 
+[![CI](https://github.com/pactia-lang/pactia/actions/workflows/ci.yml/badge.svg)](https://github.com/pactia-lang/pactia/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/pactia-lang/pactia/branch/main/graph/badge.svg)](https://codecov.io/gh/pactia-lang/pactia)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/pactia-lang/pactia/releases)
+
 Package manager for Pactia workspaces. Resolves dependencies, vendors packages, and runs builds. Invokes [pactiac](https://github.com/pactia-lang/pactiac) (the compiler) under the hood.
 
 ## Commands
