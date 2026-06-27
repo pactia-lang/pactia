@@ -49,3 +49,21 @@ test("runClean reports nothing to clean for empty dir", () => {
     rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test("runClean wraps WorkspaceError as CleanError", () => {
+  // Call without workspaceRoot in a temp dir that has no pactia.lock
+  const tmp = join(tmpdir(), `pactia-test-clean-${Date.now()}`);
+  mkdirSync(tmp, { recursive: true });
+  const cwd = process.cwd();
+  try {
+    process.chdir(tmp);
+    assert.throws(
+      () => runClean(),
+      (err: unknown) => err instanceof Error && err.name === "CleanError",
+    );
+  } finally {
+    process.chdir(cwd);
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+

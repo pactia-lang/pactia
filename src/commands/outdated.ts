@@ -1,8 +1,9 @@
-import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { listRemoteVersions } from "../resolve/package-tags.js";
 import { parseSemver, type SemverParts } from "../resolve/semver.js";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
-import { installLockedPackages } from "../resolve/lock-resolver.js";
+import { parsePactiaLock } from "@pactia/pactiac";
 
 export interface OutdatedOptions {
   readonly workspaceRoot?: string;
@@ -43,15 +44,19 @@ export async function runOutdated(options: OutdatedOptions = {}): Promise<Outdat
     throw error instanceof WorkspaceError ? new OutdatedError(error.message) : error;
   }
 
-  const resolved = await installLockedPackages(workspaceRoot);
+  const lockPath = join(workspaceRoot, "pactia.lock");
+  const lockSource = readFileSync(lockPath, "utf8");
+  const lock = parsePactiaLock(lockSource);
   const entries: OutdatedEntry[] = [];
 
-  for (const pkg of resolved.lock.packages) {
+  for (const pkg of lock.packages) {
     const current = parseSemver(pkg.version);
     if (!current) {
       entries.push({ coordinate: pkg.name, current: pkg.version });
       continue;
     }
+
+    let latest: string | undefined;
 
     try {
       const versions = await listRemoteVersions(pkg.name);
@@ -61,20 +66,19 @@ export async function runOutdated(options: OutdatedOptions = {}): Promise<Outdat
         .filter((v) => !v.parsed.prerelease)
         .sort((a, b) => compareSemver(a.parsed, b.parsed));
 
-      const latest = semvers.length > 0 ? semvers[semvers.length - 1] : undefined;
-      const latestVersion = latest?.version;
-
-      if (latestVersion && compareSemver(current, latest.parsed) < 0) {
-        entries.push({
-          coordinate: pkg.name,
-          current: pkg.version,
-          latest: latestVersion,
-        });
+      const latestEntry = semvers.length > 0 ? semvers[semvers.length - 1] : undefined;
+      if (latestEntry && compareSemver(current, latestEntry.parsed) < 0) {
+        latest = latestEntry.version;
       }
     } catch {
-      // Network/config errors — skip this package
-      entries.push({ coordinate: pkg.name, current: pkg.version });
+      // Network/config errors — latest stays undefined
     }
+
+    entries.push({
+      coordinate: pkg.name,
+      current: pkg.version,
+      latest,
+    });
   }
 
   return { workspaceRoot, entries };
