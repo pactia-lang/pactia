@@ -3,7 +3,7 @@
 [![CI](https://github.com/pactia-lang/pactia/actions/workflows/ci.yml/badge.svg)](https://github.com/pactia-lang/pactia/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/pactia-lang/pactia/branch/main/graph/badge.svg)](https://codecov.io/gh/pactia-lang/pactia)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/pactia-lang/pactia/releases)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/pactia-lang/pactia/releases)
 
 Package manager for Pactia workspaces. Resolves dependencies, vendors packages, and runs builds. Invokes [pactiac](https://github.com/pactia-lang/pactiac) (the compiler) under the hood.
 
@@ -14,12 +14,14 @@ pactia init <dir> [--name <ProductName>]
 pactia add <@scope/name> [range] [-C <workspace-dir>]
 pactia install [-C <workspace-dir>]
 pactia update [<@scope/name>] [-C <workspace-dir>]
-pactia build [-C <workspace-dir>] [-o <output-dir>]
-pactia why <@scope/name> [-C <workspace-dir>]
+pactia build [-C <workspace-dir>] [-o <output-dir>] [--no-bundle-context] [--json]
+pactia why <@scope/name> [-C <workspace-dir>] [--json]
 pactia publish --dry-run [-C <package-dir>]
+pactia outdated [-C <workspace-dir>] [--json]
+pactia clean [-C <workspace-dir>] [-o <output-dir>]
 ```
 
-`pactia add` and `pactia update` resolve semver ranges and write `pactia.lock`. `pactia install` and `pactia build` use the lock only (pinned versions, digest verify). `pactia why` explains a locked dependency chain. `pactia publish --dry-run` checks a package tree before you tag. Dependencies download into `~/.pactia/packages/` and copy into `.pactia/packages/`. Configure remotes in `~/.pactia/config.toml` (see `config/config.example.toml`). Set `PACTIA_VENDOR_ROOT` for a local package index during development.
+`pactia add` and `pactia update` resolve semver ranges and write `pactia.lock`. `pactia install` and `pactia build` use the lock only (pinned versions, digest verify). `pactia why` explains a locked dependency chain. `pactia publish --dry-run` checks a package tree before you tag. `pactia outdated` compares lock versions against available git tags. `pactia clean` removes `.pactia/packages/` and build output. `--json` outputs structured JSON for `build`, `why`, and `outdated` (CI-friendly). Dependencies download into `~/.pactia/packages/` and copy into `.pactia/packages/`. Configure remotes in `~/.pactia/config.toml` (see `config/config.example.toml`). Set `PACTIA_VENDOR_ROOT` for a local package index during development.
 
 Release packages with `git tag v{version} && git push` after a successful dry-run.
 
@@ -173,7 +175,7 @@ npm test
 pactia/
   src/
     cli.ts
-    commands/         init, add, install, update, build, why, publish
+    commands/         init, add, install, update, build, why, publish, outdated, clean
     vendor/           lock → .pactia/packages/
     workspace/        find pactia.toml + product.pactia
   scripts/
