@@ -12,6 +12,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **`pactia clean`** — removes `.pactia/packages/` and build output (`out/` or custom `-o`)
 - **`--json` flag** — structured JSON output on `outdated`, `why`, `build` for CI scripting
 - **Config auto-copy in install script** — `install-pactia.sh` downloads `config.example.toml` to `~/.pactia/config.toml` on first install
+- **Topology package validation** — `publish --dry-run` validates topology package structure, manifest closure, `mixed-exports = true` opt-in, and profile consistency
+- **Lock digest for topology packages** — `hashDirectoryMarker` covers `pactia.toml` + `index.pactia` + `export "./…"` closure files
+- **`publish -C <subdir>`** — support for monorepo subdirectory package slices
 
 ### Changed
 
