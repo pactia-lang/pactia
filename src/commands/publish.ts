@@ -14,6 +14,7 @@ export enum PublishValidationCode {
   ManifestFileMissing = "MANIFEST_FILE_MISSING",
   ManifestFileEmpty = "MANIFEST_FILE_EMPTY",
   MixedExportsMissing = "MIXED_EXPORTS_MISSING",
+  PackageImportUnresolved = "PACKAGE_IMPORT_UNRESOLVED",
 }
 
 export interface PublishValidationIssue {
@@ -85,6 +86,19 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
       code: PublishValidationCode.IndexHeaderMissing,
       message: "index.pactia must start with a pactia version line (e.g. pactia 1.0)",
     });
+  }
+
+  // Validate package-level imports against pactia.toml [dependencies]
+  const importPattern = /^import\s+(?:\{\s*[^}]*\s*\}\s+from\s+)?(@\S+)\s*;/gm;
+  let importMatch: RegExpExecArray | null;
+  while ((importMatch = importPattern.exec(indexSource)) !== null) {
+    const importedPkg = importMatch[1]!;
+    if (!manifest.dependencies.get(importedPkg)) {
+      issues.push({
+        code: PublishValidationCode.PackageImportUnresolved,
+        message: `Package '${manifest.name}' imports '${importedPkg}' but it is not declared in pactia.toml [dependencies]`,
+      });
+    }
   }
 
   // Validate constant syntax: warn on bare `export name = value` without `def`
