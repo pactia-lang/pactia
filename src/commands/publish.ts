@@ -11,6 +11,9 @@ export enum PublishValidationCode {
   InvalidVersion = "INVALID_VERSION",
   IndexHeaderMissing = "INDEX_HEADER_MISSING",
   ConstantDefRequired = "CONSTANT_DEF_REQUIRED",
+  ManifestFileMissing = "MANIFEST_FILE_MISSING",
+  ManifestFileEmpty = "MANIFEST_FILE_EMPTY",
+  MixedExportsMissing = "MIXED_EXPORTS_MISSING",
 }
 
 export interface PublishValidationIssue {
@@ -91,6 +94,43 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
       code: PublishValidationCode.ConstantDefRequired,
       message: "index.pactia contains 'export name = value' without 'def' — use 'export def name = value'",
     });
+  }
+
+  // Validate topology manifest files
+  const manifestPattern = /^export\s+["']([^"']+)["']/gm;
+  let manifestMatch: RegExpExecArray | null = manifestPattern.exec(indexSource);
+  const hasManifestExports = manifestMatch !== null;
+  const hasDefExports = /^export\s+def\s/m.test(indexSource);
+  const hasTopologyInline = /^export\s+(module|service|model|context)\s+\w+\s*\{/m.test(indexSource);
+
+  // Check mixed-exports opt-in
+  if (hasDefExports && (hasManifestExports || hasTopologyInline) && !manifest.mixedExports) {
+    issues.push({
+      code: PublishValidationCode.MixedExportsMissing,
+      message: "index.pactia has both registry defs and topology exports — add 'mixed-exports = true' to pactia.toml [package]",
+    });
+  }
+
+  // Validate each manifest file exists and has content
+  manifestMatch = manifestPattern.exec(indexSource); // reset
+  while (manifestMatch) {
+    const filePath = manifestMatch[1]!;
+    const fullPath = join(packageRoot, filePath);
+    if (!existsSync(fullPath)) {
+      issues.push({
+        code: PublishValidationCode.ManifestFileMissing,
+        message: `Manifest file '${filePath}' referenced in index.pactia does not exist`,
+      });
+    } else {
+      const content = readFileSync(fullPath, "utf8").trim();
+      if (!content) {
+        issues.push({
+          code: PublishValidationCode.ManifestFileEmpty,
+          message: `Manifest file '${filePath}' is empty`,
+        });
+      }
+    }
+    manifestMatch = manifestPattern.exec(indexSource);
   }
 
   return {
