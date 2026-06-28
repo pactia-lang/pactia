@@ -87,6 +87,9 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       if (result.vendoredPackages.length > 0) {
         process.stdout.write(`vendored ${result.vendoredPackages.join(", ")}\n`);
       }
+      if (result.transitiveDeps.length > 0) {
+        process.stdout.write(`transitive deps: ${result.transitiveDeps.join(", ")}\n`);
+      }
       process.stdout.write(`added ${result.coordinate} = "${result.range}"\n`);
       return;
     }

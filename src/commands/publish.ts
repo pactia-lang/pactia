@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parsePackageToml } from "@pactia/pactiac";
 import { isValidCoordinate } from "../domain/package-coordinate.js";
@@ -15,6 +15,7 @@ export enum PublishValidationCode {
   ManifestFileEmpty = "MANIFEST_FILE_EMPTY",
   MixedExportsMissing = "MIXED_EXPORTS_MISSING",
   PackageImportUnresolved = "PACKAGE_IMPORT_UNRESOLVED",
+  SymbolUnresolved = "PACKAGE_SYMBOL_UNRESOLVED",
 }
 
 export interface PublishValidationIssue {
@@ -150,6 +151,14 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
     }
   }
 
+  // Best-effort: validate symbol references in export def bodies
+  // Only works when vendored deps are available under .pactia/packages/
+  try {
+    validateDefBodySymbols(packageRoot, indexSource, manifest, issues);
+  } catch {
+    // Skip if registry building fails (e.g. no vendored deps)
+  }
+
   return {
     packageRoot,
     name: manifest.name,
@@ -157,6 +166,80 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
     ok: issues.length === 0,
     issues,
   };
+}
+
+function validateDefBodySymbols(
+  packageRoot: string,
+  indexSource: string,
+  _manifest: ReturnType<typeof parsePackageToml>,
+  issues: PublishValidationIssue[],
+): void {
+  // Extract imports
+  const importPattern = /^import\s+(?:\{[^}]*\}\s+from\s+)?(@\S+)\s*;/gm;
+  const imports: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = importPattern.exec(indexSource)) !== null) {
+    imports.push(m[1]!);
+  }
+  if (imports.length === 0) return;
+
+  // Build lightweight symbol list from vendored index.pactia files
+  const knownTags = new Set<string>();
+  const knownMacros = new Set<string>();
+  const vendorDir = join(packageRoot, ".pactia", "packages");
+
+  for (const imp of imports) {
+    const pkgPrefix = imp.replace(/\//g, "--");
+    if (!existsSync(vendorDir)) continue;
+    const entries = readdirSync(vendorDir);
+    const pkgDir = entries.find((e) => e.startsWith(pkgPrefix + "@"));
+    if (!pkgDir) continue;
+    const depIndexPath = join(vendorDir, pkgDir, "index.pactia");
+    if (!existsSync(depIndexPath)) continue;
+    const depSource = readFileSync(depIndexPath, "utf8");
+    // Extract exported tag names: export def @name, export def @@name
+    for (const tagMatch of depSource.matchAll(/export\s+def\s+@@?(\w+)/g)) {
+      knownTags.add(tagMatch[1]!);
+    }
+    // Extract exported macro names: export def #name
+    for (const macroMatch of depSource.matchAll(/export\s+def\s+#(\w+)/g)) {
+      knownMacros.add(macroMatch[1]!);
+    }
+  }
+
+  // Check each export def body for unresolved symbols
+  const defRegex = /export\s+def\s+([@#]@?)(\w+)(?:\([^)]*\))?\s+in\s+[^{]+\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/g;
+  let defMatch: RegExpExecArray | null;
+  while ((defMatch = defRegex.exec(indexSource)) !== null) {
+    const sigil = defMatch[1]!;
+    const name = defMatch[2]!;
+    const body = defMatch[3]!;
+
+    for (const tagRef of body.matchAll(/(?<![@])@(\w+)/g)) {
+      if (!knownTags.has(tagRef[1]!)) {
+        issues.push({
+          code: PublishValidationCode.SymbolUnresolved,
+          message: `Unresolved tag '${tagRef[0]}' in export def body of '${sigil}${name}'`,
+        });
+      }
+    }
+    for (const modRef of body.matchAll(/@@(\w+)/g)) {
+      if (!knownTags.has(modRef[1]!)) {
+        issues.push({
+          code: PublishValidationCode.SymbolUnresolved,
+          message: `Unresolved modifier '${modRef[0]}' in export def body of '${sigil}${name}'`,
+        });
+      }
+    }
+    for (const macroRef of body.matchAll(/#(\w+)/g)) {
+      if (!knownMacros.has(macroRef[1]!)) {
+        issues.push({
+          code: PublishValidationCode.SymbolUnresolved,
+          message: `Unresolved macro '${macroRef[0]}' in export def body of '${sigil}${name}'`,
+        });
+      }
+    }
+  }
 }
 
 export interface PublishOptions {

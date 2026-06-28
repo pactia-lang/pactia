@@ -1,8 +1,9 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { parsePactiaLock } from "@pactia/pactiac";
 import { normalizeCoordinate } from "../domain/package-coordinate.js";
 import { resolveWorkspaceLock } from "../resolve/lock-resolver.js";
-import { upsertDependency } from "../resolve/workspace-toml.js";
+import { upsertDependency, parseWorkspaceToml } from "../resolve/workspace-toml.js";
 import { ensureVendoredPackages, VendorError } from "../vendor/ensure-vendored.js";
 import { InstallWorkspaceError } from "./install-workspace.js";
 
@@ -19,6 +20,8 @@ export interface AddResult {
   readonly lockWritten: boolean;
   readonly installed: readonly string[];
   readonly vendoredPackages: readonly string[];
+  /** Transitive dependencies discovered through imported packages. */
+  readonly transitiveDeps: readonly string[];
 }
 
 const DEFAULT_RANGE = "^1.0";
@@ -34,6 +37,19 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
   writeFileSync(tomlPath, nextToml, "utf8");
 
   const resolved = await resolveWorkspaceLock(workspaceRoot);
+
+  // Detect transitive dependencies: lock packages not in pactia.toml [dependencies]
+  const tomlSource = readFileSync(tomlPath, "utf8");
+  const toml = parseWorkspaceToml(tomlSource);
+  const transitiveDeps: string[] = [];
+  if (existsSync(join(workspaceRoot, "pactia.lock"))) {
+    const lock = parsePactiaLock(readFileSync(join(workspaceRoot, "pactia.lock"), "utf8"));
+    for (const pkg of lock.packages) {
+      if (!toml.dependencies.has(pkg.name) && pkg.name !== coordinate) {
+        transitiveDeps.push(pkg.name);
+      }
+    }
+  }
 
   let vendoredPackages: readonly string[] = [];
   try {
@@ -52,5 +68,6 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
     lockWritten: resolved.written,
     installed: resolved.fetched,
     vendoredPackages,
+    transitiveDeps,
   };
 }
