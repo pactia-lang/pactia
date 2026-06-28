@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it } from "node:test";
-import { runPublish, validatePublishPackage, PublishValidationCode } from "./publish.js";
+import { runPublish, validatePublishPackage, PublishValidationCode, PublishError } from "./publish.js";
 
 const kernelPackage = join(
   import.meta.dirname,
@@ -49,6 +49,21 @@ describe("runPublish", () => {
 
   it("rejects publish without --dry-run", () => {
     assert.throws(() => runPublish({ dryRun: false }));
+  });
+
+  it("rejects dry-run with validation errors", () => {
+    const tmp = join(tmpdir(), `pactia-test-publish-${Date.now()}`);
+    mkdirSync(tmp, { recursive: true });
+    try {
+      // No index.pactia — validation will fail
+      writeFileSync(join(tmp, "pactia.toml"), '[package]\nname = "@test/pkg"\nversion = "1.0.0"\n', "utf8");
+      assert.throws(
+        () => runPublish({ dryRun: true, packageRoot: tmp }),
+        PublishError,
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 
   it("works with -C <subdir> for monorepo slices", () => {

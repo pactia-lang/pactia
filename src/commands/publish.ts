@@ -98,10 +98,16 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
 
   // Validate topology manifest files
   const manifestPattern = /^export\s+["']([^"']+)["']/gm;
-  let manifestMatch: RegExpExecArray | null = manifestPattern.exec(indexSource);
-  const hasManifestExports = manifestMatch !== null;
   const hasDefExports = /^export\s+def\s/m.test(indexSource);
   const hasTopologyInline = /^export\s+(module|service|model|context)\s+\w+\s*\{/m.test(indexSource);
+
+  // Collect all manifest file references
+  const manifestFiles: string[] = [];
+  let manifestMatch: RegExpExecArray | null;
+  while ((manifestMatch = manifestPattern.exec(indexSource)) !== null) {
+    manifestFiles.push(manifestMatch[1]!);
+  }
+  const hasManifestExports = manifestFiles.length > 0;
 
   // Check mixed-exports opt-in
   if (hasDefExports && (hasManifestExports || hasTopologyInline) && !manifest.mixedExports) {
@@ -112,9 +118,7 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
   }
 
   // Validate each manifest file exists and has content
-  manifestMatch = manifestPattern.exec(indexSource); // reset
-  while (manifestMatch) {
-    const filePath = manifestMatch[1]!;
+  for (const filePath of manifestFiles) {
     const fullPath = join(packageRoot, filePath);
     if (!existsSync(fullPath)) {
       issues.push({
@@ -130,7 +134,6 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
         });
       }
     }
-    manifestMatch = manifestPattern.exec(indexSource);
   }
 
   return {
