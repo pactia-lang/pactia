@@ -138,3 +138,71 @@ describe("topology validation", () => {
     }
   });
 });
+
+describe("body resolution", () => {
+  it("rejects import without matching dependency", () => {
+    const tmp = join(tmpdir(), `pactia-test-body-${Date.now()}`);
+    mkdirSync(tmp, { recursive: true });
+    try {
+      writeFileSync(join(tmp, "pactia.toml"), '[package]\nname = "@test/pkg"\nversion = "1.0.0"\n', "utf8");
+      writeFileSync(join(tmp, "index.pactia"), 'pactia 1.0\nimport @pactia/kernel;\nexport def @test in product { }\n', "utf8");
+      const result = validatePublishPackage(tmp);
+      assert.ok(result.issues.some((i) => i.code === PublishValidationCode.PackageImportUnresolved));
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("skips body resolution when no imports present", () => {
+    const tmp = join(tmpdir(), `pactia-test-body-${Date.now()}`);
+    mkdirSync(tmp, { recursive: true });
+    try {
+      writeFileSync(join(tmp, "pactia.toml"), '[package]\nname = "@test/pkg"\nversion = "1.0.0"\n', "utf8");
+      writeFileSync(join(tmp, "index.pactia"), 'pactia 1.0\nexport def @test in product { }\n', "utf8");
+      const result = validatePublishPackage(tmp);
+      assert.equal(result.ok, true);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("validates with vendored deps when available", () => {
+    const tmp = join(tmpdir(), `pactia-test-body-${Date.now()}`);
+    const vendorDir = join(tmp, ".pactia", "packages", "@pactia--kernel@1.0.0");
+    mkdirSync(vendorDir, { recursive: true });
+    writeFileSync(join(vendorDir, "pactia.toml"), '[package]\nname = "@pactia/kernel"\nversion = "1.0.0"\n');
+    writeFileSync(join(vendorDir, "index.pactia"), "pactia 1.0\nexport def @stack in product { }\n");
+    writeFileSync(join(vendorDir, ".digest"), "sha256:abc");
+
+    try {
+      writeFileSync(join(tmp, "pactia.toml"), '[package]\nname = "@test/pkg"\nversion = "1.0.0"\n\n[dependencies]\n"@pactia/kernel" = "^1.0"\n', "utf8");
+      writeFileSync(join(tmp, "pactia.lock"), 'lockVersion = 1\n\n[[package]]\nname = "@pactia/kernel"\nversion = "1.0.0"\ndigest = "sha256:abc"\n');
+      writeFileSync(join(tmp, "index.pactia"), 'pactia 1.0\nimport @pactia/kernel;\nexport def #example in product { @stack { } }\n', "utf8");
+      const result = validatePublishPackage(tmp);
+      const hasUnresolved = result.issues.some((i) => i.code === PublishValidationCode.SymbolUnresolved);
+      assert.equal(hasUnresolved, false);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("catches unresolved tags in export def body", () => {
+    const tmp = join(tmpdir(), `pactia-test-body-${Date.now()}`);
+    const vendorDir = join(tmp, ".pactia", "packages", "@pactia--kernel@1.0.0");
+    mkdirSync(vendorDir, { recursive: true });
+    writeFileSync(join(vendorDir, "pactia.toml"), '[package]\nname = "@pactia/kernel"\nversion = "1.0.0"\n');
+    writeFileSync(join(vendorDir, "index.pactia"), "pactia 1.0\nexport def @known_tag in product { }\n");
+    writeFileSync(join(vendorDir, ".digest"), "sha256:abc");
+
+    try {
+      writeFileSync(join(tmp, "pactia.toml"), '[package]\nname = "@test/pkg"\nversion = "1.0.0"\n\n[dependencies]\n"@pactia/kernel" = "^1.0"\n', "utf8");
+      writeFileSync(join(tmp, "pactia.lock"), 'lockVersion = 1\n\n[[package]]\nname = "@pactia/kernel"\nversion = "1.0.0"\ndigest = "sha256:abc"\n');
+      // @unknown_tag is NOT exported by kernel
+      writeFileSync(join(tmp, "index.pactia"), 'pactia 1.0\nimport @pactia/kernel;\nexport def #example in product { @unknown_tag { } }\n', "utf8");
+      const result = validatePublishPackage(tmp);
+      assert.ok(result.issues.some((i) => i.code === PublishValidationCode.SymbolUnresolved));
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});

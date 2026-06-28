@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parsePackageToml } from "@pactia/pactiac";
 import { isValidCoordinate } from "../domain/package-coordinate.js";
@@ -174,52 +174,68 @@ function validateDefBodySymbols(
   _manifest: ReturnType<typeof parsePackageToml>,
   issues: PublishValidationIssue[],
 ): void {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { parseSyntaxTree, FsRegistryLoader } = require("@pactia/pactiac");
-  const tree = parseSyntaxTree({ source: indexSource, entryFile: "index.pactia" });
-
-  const imports = tree.root.imports
-    .filter((imp: { path: string }) => imp.path.startsWith("@"))
-    .map((imp: { path: string }) => imp.path);
+  // Extract imports
+  const importPattern = /^import\s+(?:\{[^}]*\}\s+from\s+)?(@\S+)\s*;/gm;
+  const imports: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = importPattern.exec(indexSource)) !== null) {
+    imports.push(m[1]!);
+  }
   if (imports.length === 0) return;
 
-  const loader = new FsRegistryLoader();
-  const registry = loader.load({
-    workspaceRoot: packageRoot,
-    importCoordinates: imports,
-    syntax: tree,
-    partialImports: new Map(),
-  });
+  // Build lightweight symbol list from vendored index.pactia files
+  const knownTags = new Set<string>();
+  const knownMacros = new Set<string>();
+  const vendorDir = join(packageRoot, ".pactia", "packages");
 
-  const knownTags = new Set(registry.tags.keys());
-  const knownMacros = new Set(registry.macros.keys());
+  for (const imp of imports) {
+    const pkgPrefix = imp.replace(/\//g, "--");
+    if (!existsSync(vendorDir)) continue;
+    const entries = readdirSync(vendorDir);
+    const pkgDir = entries.find((e) => e.startsWith(pkgPrefix + "@"));
+    if (!pkgDir) continue;
+    const depIndexPath = join(vendorDir, pkgDir, "index.pactia");
+    if (!existsSync(depIndexPath)) continue;
+    const depSource = readFileSync(depIndexPath, "utf8");
+    // Extract exported tag names: export def @name, export def @@name
+    for (const tagMatch of depSource.matchAll(/export\s+def\s+@@?(\w+)/g)) {
+      knownTags.add(tagMatch[1]!);
+    }
+    // Extract exported macro names: export def #name
+    for (const macroMatch of depSource.matchAll(/export\s+def\s+#(\w+)/g)) {
+      knownMacros.add(macroMatch[1]!);
+    }
+  }
 
-  for (const def of tree.root.exportDefs) {
-    const body = def.bodySource as string;
-    // Check @tag references (but not @@)
-    for (const m of body.matchAll(/(?<![@])@(\w+)/g)) {
-      if (!knownTags.has(m[1]!)) {
+  // Check each export def body for unresolved symbols
+  const defRegex = /export\s+def\s+([@#]@?)(\w+)(?:\([^)]*\))?\s+in\s+[^{]+\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/g;
+  let defMatch: RegExpExecArray | null;
+  while ((defMatch = defRegex.exec(indexSource)) !== null) {
+    const sigil = defMatch[1]!;
+    const name = defMatch[2]!;
+    const body = defMatch[3]!;
+
+    for (const tagRef of body.matchAll(/(?<![@])@(\w+)/g)) {
+      if (!knownTags.has(tagRef[1]!)) {
         issues.push({
           code: PublishValidationCode.SymbolUnresolved,
-          message: `Unresolved tag '${m[0]}' in export def body of '${def.sigil}${def.name}'`,
+          message: `Unresolved tag '${tagRef[0]}' in export def body of '${sigil}${name}'`,
         });
       }
     }
-    // Check @@modifier references
-    for (const m of body.matchAll(/@@(\w+)/g)) {
-      if (!knownTags.has(m[1]!)) {
+    for (const modRef of body.matchAll(/@@(\w+)/g)) {
+      if (!knownTags.has(modRef[1]!)) {
         issues.push({
           code: PublishValidationCode.SymbolUnresolved,
-          message: `Unresolved modifier '${m[0]}' in export def body of '${def.sigil}${def.name}'`,
+          message: `Unresolved modifier '${modRef[0]}' in export def body of '${sigil}${name}'`,
         });
       }
     }
-    // Check #macro references
-    for (const m of body.matchAll(/#(\w+)/g)) {
-      if (!knownMacros.has(m[1]!)) {
+    for (const macroRef of body.matchAll(/#(\w+)/g)) {
+      if (!knownMacros.has(macroRef[1]!)) {
         issues.push({
           code: PublishValidationCode.SymbolUnresolved,
-          message: `Unresolved macro '${m[0]}' in export def body of '${def.sigil}${def.name}'`,
+          message: `Unresolved macro '${macroRef[0]}' in export def body of '${sigil}${name}'`,
         });
       }
     }
