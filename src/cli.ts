@@ -13,6 +13,7 @@ import { runUpdate, UpdateError } from "./commands/update.js";
 import { runWhy, WhyError } from "./commands/why.js";
 import { runOutdated, OutdatedError } from "./commands/outdated.js";
 import { runClean, CleanError } from "./commands/clean.js";
+import { runRemove, RemoveError } from "./commands/remove.js";
 import { ResolveError } from "./domain/resolve-error.js";
 import { WorkspaceError } from "./workspace/find-workspace.js";
 
@@ -39,7 +40,8 @@ function handleError(error: unknown): void {
     error instanceof WhyError ||
     error instanceof PublishError ||
     error instanceof OutdatedError ||
-    error instanceof CleanError
+    error instanceof CleanError ||
+    error instanceof RemoveError
   ) {
     process.stderr.write(`error: ${error.message}\n`);
     process.exit(1);
@@ -212,6 +214,24 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
         }
       } else {
         process.stdout.write("Nothing to clean.\n");
+      }
+      return;
+    }
+    case PactiaCommand.Remove:
+    case PactiaCommand.Rm: {
+      if (!args.removeCoordinate) {
+        printUsage();
+        process.exit(1);
+        return;
+      }
+      const result = runRemove({
+        workspaceRoot: args.workspaceRoot,
+        coordinate: args.removeCoordinate,
+      });
+      if (result.removed) {
+        process.stdout.write(`removed ${result.coordinate} from pactia.toml\n`);
+      } else {
+        process.stdout.write(`dependency '${result.coordinate}' not found in pactia.toml\n`);
       }
       return;
     }

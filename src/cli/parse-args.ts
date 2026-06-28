@@ -10,6 +10,7 @@ export interface CliArgs {
   readonly addRange: string | undefined;
   readonly updateCoordinate: string | undefined;
   readonly whyCoordinate: string | undefined;
+  readonly removeCoordinate: string | undefined;
   readonly publishDryRun: boolean;
   readonly bundleContext: boolean;
   readonly json: boolean;
@@ -31,6 +32,7 @@ export function parseArgs(argv: string[]): CliArgs {
   let addRange: string | undefined;
   let updateCoordinate: string | undefined;
   let whyCoordinate: string | undefined;
+  let removeCoordinate: string | undefined;
   let publishDryRun = false;
   let bundleContext = true;
   let json = false;
@@ -72,6 +74,9 @@ export function parseArgs(argv: string[]): CliArgs {
   if (commandRaw === PactiaCommand.Why) {
     whyCoordinate = positionals[0];
   }
+  if (commandRaw === PactiaCommand.Remove || commandRaw === PactiaCommand.Rm) {
+    removeCoordinate = positionals[0];
+  }
 
   return {
     command: parseCommand(commandRaw),
@@ -83,6 +88,7 @@ export function parseArgs(argv: string[]): CliArgs {
     addRange,
     updateCoordinate,
     whyCoordinate,
+    removeCoordinate,
     publishDryRun,
     bundleContext,
     json,
@@ -101,6 +107,8 @@ export function printUsage(): void {
       "  pactia publish --dry-run [-C <package-dir>]\n" +
       "  pactia outdated [-C <workspace-dir>] [--json]\n" +
       "  pactia clean [-C <workspace-dir>] [-o <output-dir>]\n" +
+      "  pactia remove <@scope/name> [-C <workspace-dir>]\n" +
+      "  pactia rm <@scope/name> [-C <workspace-dir>]\n" +
       "\n" +
       "Global options: --help, -h, --version, -v, --json\n",
   );

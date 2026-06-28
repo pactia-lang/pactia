@@ -78,3 +78,13 @@ export function upsertDependency(
   next.set(coordinate, range);
   return serializeWorkspaceToml({ ...manifest, dependencies: next });
 }
+
+export function removeDependency(
+  source: string,
+  coordinate: string,
+): string {
+  const manifest = parseWorkspaceToml(source);
+  const next = new Map(manifest.dependencies);
+  next.delete(coordinate);
+  return serializeWorkspaceToml({ ...manifest, dependencies: next });
+}
