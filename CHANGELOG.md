@@ -8,6 +8,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **`pactia remove` / `pactia rm`** — removes a dependency from `pactia.toml [dependencies]` and cleans the vendored package directory.
+- **`PACKAGE_IMPORT_UNRESOLVED` validation** in `publish --dry-run` — catches `import @pkg` in `index.pactia` when `@pkg` is not declared in `pactia.toml [dependencies]`.
+- **`pactia outdated`** and **`pactia clean`** documented in spec `packages.md` command table.
+- **`--json`** global flag documented.
+
 - **`pactia outdated`** — compares lock versions against available git tags, shows newer versions
 - **`pactia clean`** — removes `.pactia/packages/` and build output (`out/` or custom `-o`)
 - **`--json` flag** — structured JSON output on `outdated`, `why`, `build` for CI scripting
