@@ -4,6 +4,7 @@ import {
   parseWorkspaceToml,
   serializeWorkspaceToml,
   upsertDependency,
+  removeDependency,
 } from "./workspace-toml.js";
 
 describe("workspace-toml", () => {
@@ -28,5 +29,19 @@ describe("workspace-toml", () => {
     const next = upsertDependency(source, "@pactia/kernel", "^1.0");
     const parsed = parseWorkspaceToml(next);
     assert.equal(parsed.dependencies.get("@pactia/kernel"), "^1.0");
+  });
+
+  it("removes a dependency from toml", () => {
+    const source = `[package]\nname = "demo"\nversion = "0.1.0"\n\n[dependencies]\n"@pactia/kernel" = "^1.0"\n"@pactia/rust-stack" = "^1.0"\n`;
+    const next = removeDependency(source, "@pactia/kernel");
+    const parsed = parseWorkspaceToml(next);
+    assert.equal(parsed.dependencies.has("@pactia/kernel"), false);
+    assert.equal(parsed.dependencies.get("@pactia/rust-stack"), "^1.0");
+  });
+
+  it("removeDependency is a no-op when dep not present", () => {
+    const source = `[package]\nname = "demo"\nversion = "0.1.0"\n\n[dependencies]\n"@pactia/rust-stack" = "^1.0"\n`;
+    const next = removeDependency(source, "@pactia/kernel");
+    assert.equal(next, source);
   });
 });

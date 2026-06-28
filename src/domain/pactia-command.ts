@@ -9,4 +9,6 @@ export enum PactiaCommand {
   Publish = "publish",
   Outdated = "outdated",
   Clean = "clean",
+  Remove = "remove",
+  Rm = "rm",
 }

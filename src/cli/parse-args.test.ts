@@ -64,4 +64,17 @@ describe("parseArgs", () => {
     assert.equal(args.command, PactiaCommand.Outdated);
     assert.equal(args.json, true);
   });
+
+  it("parses remove command", () => {
+    const args = parseArgs(["remove", "@pactia/kernel", "-C", "/tmp/ws"]);
+    assert.equal(args.command, PactiaCommand.Remove);
+    assert.equal(args.removeCoordinate, "@pactia/kernel");
+    assert.equal(args.workspaceRoot, "/tmp/ws");
+  });
+
+  it("parses rm alias", () => {
+    const args = parseArgs(["rm", "@pactia/rust-stack", "-C", "/tmp/ws"]);
+    assert.equal(args.command, PactiaCommand.Rm);
+    assert.equal(args.removeCoordinate, "@pactia/rust-stack");
+  });
 });
