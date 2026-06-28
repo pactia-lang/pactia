@@ -15,6 +15,7 @@ export enum PublishValidationCode {
   ManifestFileEmpty = "MANIFEST_FILE_EMPTY",
   MixedExportsMissing = "MIXED_EXPORTS_MISSING",
   PackageImportUnresolved = "PACKAGE_IMPORT_UNRESOLVED",
+  SymbolUnresolved = "PACKAGE_SYMBOL_UNRESOLVED",
 }
 
 export interface PublishValidationIssue {
@@ -150,6 +151,14 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
     }
   }
 
+  // Best-effort: validate symbol references in export def bodies
+  // Only works when vendored deps are available under .pactia/packages/
+  try {
+    validateDefBodySymbols(packageRoot, indexSource, manifest, issues);
+  } catch {
+    // Skip if registry building fails (e.g. no vendored deps)
+  }
+
   return {
     packageRoot,
     name: manifest.name,
@@ -157,6 +166,64 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
     ok: issues.length === 0,
     issues,
   };
+}
+
+function validateDefBodySymbols(
+  packageRoot: string,
+  indexSource: string,
+  _manifest: ReturnType<typeof parsePackageToml>,
+  issues: PublishValidationIssue[],
+): void {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { parseSyntaxTree, FsRegistryLoader } = require("@pactia/pactiac");
+  const tree = parseSyntaxTree({ source: indexSource, entryFile: "index.pactia" });
+
+  const imports = tree.root.imports
+    .filter((imp: { path: string }) => imp.path.startsWith("@"))
+    .map((imp: { path: string }) => imp.path);
+  if (imports.length === 0) return;
+
+  const loader = new FsRegistryLoader();
+  const registry = loader.load({
+    workspaceRoot: packageRoot,
+    importCoordinates: imports,
+    syntax: tree,
+    partialImports: new Map(),
+  });
+
+  const knownTags = new Set(registry.tags.keys());
+  const knownMacros = new Set(registry.macros.keys());
+
+  for (const def of tree.root.exportDefs) {
+    const body = def.bodySource as string;
+    // Check @tag references (but not @@)
+    for (const m of body.matchAll(/(?<![@])@(\w+)/g)) {
+      if (!knownTags.has(m[1]!)) {
+        issues.push({
+          code: PublishValidationCode.SymbolUnresolved,
+          message: `Unresolved tag '${m[0]}' in export def body of '${def.sigil}${def.name}'`,
+        });
+      }
+    }
+    // Check @@modifier references
+    for (const m of body.matchAll(/@@(\w+)/g)) {
+      if (!knownTags.has(m[1]!)) {
+        issues.push({
+          code: PublishValidationCode.SymbolUnresolved,
+          message: `Unresolved modifier '${m[0]}' in export def body of '${def.sigil}${def.name}'`,
+        });
+      }
+    }
+    // Check #macro references
+    for (const m of body.matchAll(/#(\w+)/g)) {
+      if (!knownMacros.has(m[1]!)) {
+        issues.push({
+          code: PublishValidationCode.SymbolUnresolved,
+          message: `Unresolved macro '${m[0]}' in export def body of '${def.sigil}${def.name}'`,
+        });
+      }
+    }
+  }
 }
 
 export interface PublishOptions {
