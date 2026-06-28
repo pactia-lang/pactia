@@ -230,6 +230,11 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       });
       if (result.removed) {
         process.stdout.write(`removed ${result.coordinate} from pactia.toml\n`);
+        if (result.transitiveDependents.length > 0) {
+          process.stderr.write(
+            `warning: ${result.coordinate} is still imported by: ${result.transitiveDependents.join(", ")}\n`,
+          );
+        }
       } else {
         process.stdout.write(`dependency '${result.coordinate}' not found in pactia.toml\n`);
       }
