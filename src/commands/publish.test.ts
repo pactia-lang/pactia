@@ -206,3 +206,79 @@ describe("body resolution", () => {
     }
   });
 });
+describe("multi-file registry package", () => {
+  it("accepts a package with export ./file for registry defs", () => {
+    const tmp = join(tmpdir(), `pactia-test-multifile-${Date.now()}`);
+    mkdirSync(tmp, { recursive: true });
+    try {
+      writeFileSync(join(tmp, "pactia.toml"), '[package]\nname = "@test/multifile"\nversion = "1.0.0"\n', "utf8");
+      writeFileSync(join(tmp, "index.pactia"), 'pactia 1.0\nexport "./defs/host-tags.pactia"\nexport "./defs/macros.pactia"\n', "utf8");
+      mkdirSync(join(tmp, "defs"), { recursive: true });
+      writeFileSync(join(tmp, "defs", "host-tags.pactia"), 'export def @api in service { method, path, }\n', "utf8");
+      writeFileSync(join(tmp, "defs", "macros.pactia"), 'export def #list in service { @paginated { } }\n', "utf8");
+      const result = validatePublishPackage(tmp);
+      assert.equal(result.ok, true);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects manifest file importing undeclared package", () => {
+    const tmp = join(tmpdir(), `pactia-test-multifile-${Date.now()}`);
+    mkdirSync(tmp, { recursive: true });
+    try {
+      writeFileSync(join(tmp, "pactia.toml"), '[package]\nname = "@test/multifile"\nversion = "1.0.0"\n', "utf8");
+      writeFileSync(join(tmp, "index.pactia"), 'pactia 1.0\nexport "./defs/tags.pactia"\n', "utf8");
+      mkdirSync(join(tmp, "defs"), { recursive: true });
+      // Manifest file imports @pactia/kernel which is NOT in pactia.toml [dependencies]
+      writeFileSync(join(tmp, "defs", "tags.pactia"), 'import @pactia/kernel;\nexport def @api in service { }\n', "utf8");
+      const result = validatePublishPackage(tmp);
+      assert.ok(result.issues.some((i) => i.code === PublishValidationCode.PackageImportUnresolved),
+        `Expected PACKAGE_IMPORT_UNRESOLVED, got: ${result.issues.map(i => i.code).join(", ")}`);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("validates manifest file with declared deps and vendored packages", () => {
+    const tmp = join(tmpdir(), `pactia-test-multifile-${Date.now()}`);
+    const vendorDir = join(tmp, ".pactia", "packages", "@pactia--kernel@1.0.0");
+    mkdirSync(vendorDir, { recursive: true });
+    writeFileSync(join(vendorDir, "pactia.toml"), '[package]\nname = "@pactia/kernel"\nversion = "1.0.0"\n');
+    writeFileSync(join(vendorDir, "index.pactia"), "pactia 1.0\nexport def @api in service { method, path, }\n");
+    writeFileSync(join(vendorDir, ".digest"), "sha256:abc");
+    try {
+      writeFileSync(join(tmp, "pactia.toml"), '[package]\nname = "@test/multifile"\nversion = "1.0.0"\n\n[dependencies]\n"@pactia/kernel" = "^1.0"\n', "utf8");
+      writeFileSync(join(tmp, "pactia.lock"), 'lockVersion = 1\n\n[[package]]\nname = "@pactia/kernel"\nversion = "1.0.0"\ndigest = "sha256:abc"\n');
+      writeFileSync(join(tmp, "index.pactia"), 'pactia 1.0\nexport "./defs/macros.pactia"\n', "utf8");
+      mkdirSync(join(tmp, "defs"), { recursive: true });
+      writeFileSync(join(tmp, "defs", "macros.pactia"), 'import @pactia/kernel;\nexport def #list in service { @api { method: GET, path: "/list", } }\n', "utf8");
+      const result = validatePublishPackage(tmp);
+      assert.equal(result.ok, true, `Expected ok, got: ${result.issues.map(i => i.message).join("; ")}`);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("catches unresolved def body symbols in manifest file", () => {
+    const tmp = join(tmpdir(), `pactia-test-multifile-${Date.now()}`);
+    const vendorDir = join(tmp, ".pactia", "packages", "@pactia--kernel@1.0.0");
+    mkdirSync(vendorDir, { recursive: true });
+    writeFileSync(join(vendorDir, "pactia.toml"), '[package]\nname = "@pactia/kernel"\nversion = "1.0.0"\n');
+    writeFileSync(join(vendorDir, "index.pactia"), "pactia 1.0\nexport def @known in service { }\n");
+    writeFileSync(join(vendorDir, ".digest"), "sha256:abc");
+    try {
+      writeFileSync(join(tmp, "pactia.toml"), '[package]\nname = "@test/multifile"\nversion = "1.0.0"\n\n[dependencies]\n"@pactia/kernel" = "^1.0"\n', "utf8");
+      writeFileSync(join(tmp, "pactia.lock"), 'lockVersion = 1\n\n[[package]]\nname = "@pactia/kernel"\nversion = "1.0.0"\ndigest = "sha256:abc"\n');
+      writeFileSync(join(tmp, "index.pactia"), 'pactia 1.0\nexport "./defs/bad-macros.pactia"\n', "utf8");
+      mkdirSync(join(tmp, "defs"), { recursive: true });
+      // @unknown_tag is NOT exported by kernel
+      writeFileSync(join(tmp, "defs", "bad-macros.pactia"), 'import @pactia/kernel;\nexport def #bad in service { @unknown_tag { } }\n', "utf8");
+      const result = validatePublishPackage(tmp);
+      assert.ok(result.issues.some((i) => i.code === PublishValidationCode.SymbolUnresolved),
+        `Expected PACKAGE_SYMBOL_UNRESOLVED, got: ${result.issues.map(i => i.code).join(", ")}`);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
