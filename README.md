@@ -80,10 +80,10 @@ Stack binding is in source (`#rust-stack` in `product.pactia`), not in TOML.
 
 Multi-file workspaces use **import + attach** in `product.pactia`:
 
-- **Package imports** (`import { @api, #database, … } from @pactia/kernel`) — declare tags and macros once at product scope. `pactia.toml` / `pactia.lock` pin versions; vendored packages land in `.pactia/packages/`.
-- **Fragment imports** (`import { CatalogAdminService } from ./fragments/…`) — register `export module` / `export service` / `export model` symbols for attach only.
+- **Package imports** (`import { @api, #database, … } from @pactia/kernel`) — each file imports the symbols it uses. `pactia.toml` / `pactia.lock` pin versions; vendored packages land in `.pactia/packages/`.
+- **Fragment imports** (`import { CatalogAdminService } from ./fragments/…`) — register `export module` / `export service` / `export model` symbols for attach.
 
-Fragment files do **not** repeat `import … from @pactia/…` (pactiac warns with `FRAGMENT_PACKAGE_IMPORT` if they do). On `pactia build`, pactiac merges attach bodies into one program; product-level package imports apply to all inlined fragments. Context attachments lower to `context[]` with `name`; `pactia build` writes `context.index.json` using the same `name` field.
+Fragment files carry their own `@pactia/*` imports — no centralization in `product.pactia`. On `pactia build`, pactiac collects imports from all files and splices attach bodies into one program. Context attachments lower to `context[]` with `name`; `pactia build` writes `context.index.json` using the same `name` field.
 
 ```pactia
 // product.pactia

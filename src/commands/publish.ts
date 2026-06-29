@@ -132,7 +132,7 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
     });
   }
 
-  // Validate each manifest file exists and has content
+  // Validate each manifest file exists, has content, and imports are declared
   for (const filePath of manifestFiles) {
     const fullPath = join(packageRoot, filePath);
     if (!existsSync(fullPath)) {
@@ -147,14 +147,27 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
           code: PublishValidationCode.ManifestFileEmpty,
           message: `Manifest file '${filePath}' is empty`,
         });
+      } else {
+        // Validate imports in manifest files against pactia.toml [dependencies]
+        const fileImportPattern = /^import\s+(?:\{\s*[^}]*\s*\}\s+from\s+)?(@\S+)\s*;/gm;
+        let fileImportMatch: RegExpExecArray | null;
+        while ((fileImportMatch = fileImportPattern.exec(content)) !== null) {
+          const importedPkg = fileImportMatch[1]!;
+          if (!manifest.dependencies.get(importedPkg)) {
+            issues.push({
+              code: PublishValidationCode.PackageImportUnresolved,
+              message: `Manifest file '${filePath}' imports '${importedPkg}' but it is not declared in pactia.toml [dependencies]`,
+            });
+          }
+        }
       }
     }
   }
 
-  // Best-effort: validate symbol references in export def bodies
+  // Best-effort: validate symbol references in export def bodies (index + manifest files)
   // Only works when vendored deps are available under .pactia/packages/
   try {
-    validateDefBodySymbols(packageRoot, indexSource, manifest, issues);
+    validateDefBodySymbols(packageRoot, indexSource, manifestFiles, manifest, issues);
   } catch {
     // Skip if registry building fails (e.g. no vendored deps)
   }
@@ -171,15 +184,27 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
 function validateDefBodySymbols(
   packageRoot: string,
   indexSource: string,
+  _manifestFiles: string[],
   _manifest: ReturnType<typeof parsePackageToml>,
   issues: PublishValidationIssue[],
 ): void {
-  // Extract imports
+  // Extract imports from index.pactia + all manifest files
   const importPattern = /^import\s+(?:\{[^}]*\}\s+from\s+)?(@\S+)\s*;/gm;
   const imports: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = importPattern.exec(indexSource)) !== null) {
     imports.push(m[1]!);
+  }
+  // Also check manifest files for imports
+  for (const mfPath of _manifestFiles) {
+    const mfFull = join(packageRoot, mfPath);
+    if (existsSync(mfFull)) {
+      const mfSource = readFileSync(mfFull, "utf8");
+      let mfMatch: RegExpExecArray | null;
+      while ((mfMatch = importPattern.exec(mfSource)) !== null) {
+        imports.push(mfMatch[1]!);
+      }
+    }
   }
   if (imports.length === 0) return;
 
@@ -207,37 +232,58 @@ function validateDefBodySymbols(
     }
   }
 
-  // Check each export def body for unresolved symbols
+  // Check each export def body for unresolved symbols (index.pactia + manifest files)
   const defRegex = /export\s+def\s+([@#]@?)(\w+)(?:\([^)]*\))?\s+in\s+[^{]+\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/g;
   let defMatch: RegExpExecArray | null;
+  // Scan index.pactia
   while ((defMatch = defRegex.exec(indexSource)) !== null) {
-    const sigil = defMatch[1]!;
-    const name = defMatch[2]!;
-    const body = defMatch[3]!;
+    checkDefBody(defMatch, knownTags, knownMacros, issues);
+  }
+  // Scan manifest files too
+  for (const mfPath of _manifestFiles) {
+    const mfFull = join(packageRoot, mfPath);
+    if (existsSync(mfFull)) {
+      const mfSource = readFileSync(mfFull, "utf8");
+      let mfDefMatch: RegExpExecArray | null;
+      while ((mfDefMatch = defRegex.exec(mfSource)) !== null) {
+        checkDefBody(mfDefMatch, knownTags, knownMacros, issues);
+      }
+    }
+  }
+}
 
-    for (const tagRef of body.matchAll(/(?<![@])@(\w+)/g)) {
-      if (!knownTags.has(tagRef[1]!)) {
-        issues.push({
-          code: PublishValidationCode.SymbolUnresolved,
-          message: `Unresolved tag '${tagRef[0]}' in export def body of '${sigil}${name}'`,
-        });
-      }
+function checkDefBody(
+  defMatch: RegExpExecArray,
+  knownTags: Set<string>,
+  knownMacros: Set<string>,
+  issues: PublishValidationIssue[],
+): void {
+  const sigil = defMatch[1]!;
+  const name = defMatch[2]!;
+  const body = defMatch[3]!;
+
+  for (const tagRef of body.matchAll(/(?<![@])@(\w+)/g)) {
+    if (!knownTags.has(tagRef[1]!)) {
+      issues.push({
+        code: PublishValidationCode.SymbolUnresolved,
+        message: `Unresolved tag '${tagRef[0]}' in export def body of '${sigil}${name}'`,
+      });
     }
-    for (const modRef of body.matchAll(/@@(\w+)/g)) {
-      if (!knownTags.has(modRef[1]!)) {
-        issues.push({
-          code: PublishValidationCode.SymbolUnresolved,
-          message: `Unresolved modifier '${modRef[0]}' in export def body of '${sigil}${name}'`,
-        });
-      }
+  }
+  for (const modRef of body.matchAll(/@@(\w+)/g)) {
+    if (!knownTags.has(modRef[1]!)) {
+      issues.push({
+        code: PublishValidationCode.SymbolUnresolved,
+        message: `Unresolved modifier '${modRef[0]}' in export def body of '${sigil}${name}'`,
+      });
     }
-    for (const macroRef of body.matchAll(/#(\w+)/g)) {
-      if (!knownMacros.has(macroRef[1]!)) {
-        issues.push({
-          code: PublishValidationCode.SymbolUnresolved,
-          message: `Unresolved macro '${macroRef[0]}' in export def body of '${sigil}${name}'`,
-        });
-      }
+  }
+  for (const macroRef of body.matchAll(/#(\w+)/g)) {
+    if (!knownMacros.has(macroRef[1]!)) {
+      issues.push({
+        code: PublishValidationCode.SymbolUnresolved,
+        message: `Unresolved macro '${macroRef[0]}' in export def body of '${sigil}${name}'`,
+      });
     }
   }
 }
