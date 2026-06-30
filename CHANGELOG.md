@@ -4,7 +4,7 @@ All notable package-manager changes are documented here.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.4.0] - 2026-06-30
 
 ### Added
 
@@ -67,6 +67,7 @@ Initial `pactia` release — `init`, `add`, `build`, lockfile vendoring, native 
 - `pactia.toml` + `pactia.lock` workspace manifests
 - Native binaries for Linux, macOS, and Windows (Bun compile, bundles pactiac)
 
-[Unreleased]: https://github.com/pactia-lang/pactia/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/pactia-lang/pactia/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/pactia-lang/pactia/compare/v0.2.0...v0.4.0
 [0.2.0]: https://github.com/pactia-lang/pactia/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/pactia-lang/pactia/releases/tag/v0.1.0
