@@ -103,7 +103,7 @@ export function parseArgs(argv: string[]): CliArgs {
 export function printUsage(): void {
   process.stderr.write(
     "Usage:\n" +
-      "  pactia init <dir> [--name <ProductName>]\n" +
+      "  pactia init <dir> [--name <name>]\n" +
       "  pactia add <@scope/name> [range] [-C <workspace-dir>]\n" +
       "  pactia install [-C <workspace-dir>] [--offline]\n" +
       "  pactia update [<@scope/name>] [-C <workspace-dir>]\n" +
