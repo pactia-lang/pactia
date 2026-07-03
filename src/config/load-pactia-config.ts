@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   DownloadPrefer,
   type PactiaConfig,
@@ -104,15 +105,40 @@ export function pactiaConfigPath(): string {
   return join(homedir(), ".pactia", "config.toml");
 }
 
+function defaultConfigToml(): string {
+  return `# Copy to ~/.pactia/config.toml — pactia reads all git/api bases from here (nothing hardcoded in the CLI).
+
+[source."@pactia/"]
+git = "https://github.com/pactia-io"
+
+[hosts."github.com"]
+git = "https://github.com"
+api = "https://api.github.com"
+token = "env:PACTIA_GITHUB_TOKEN"
+
+[hosts."gitlab.com"]
+git = "https://gitlab.com"
+api = "https://gitlab.com/api/v4"
+token = "env:PACTIA_GITLAB_TOKEN"
+
+[defaults]
+prefer = "http"
+`;
+}
+
+function bootstrapConfig(configPath: string): string {
+  const content = defaultConfigToml();
+  mkdirSync(dirname(configPath), { recursive: true });
+  writeFileSync(configPath, content, "utf8");
+  return content;
+}
+
 export function loadPactiaConfig(configPath: string = pactiaConfigPath()): PactiaConfig {
   let source: string;
   try {
     source = readFileSync(configPath, "utf8");
   } catch {
-    throw new ResolveError(
-      ResolveErrorCode.ConfigMissing,
-      `Missing ${configPath} — copy pactia/config/config.example.toml to ~/.pactia/config.toml`,
-    );
+    source = bootstrapConfig(configPath);
   }
   return parsePactiaConfig(source);
 }

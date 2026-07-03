@@ -132,6 +132,27 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
     });
   }
 
+  // Validate declared exports profile against index.pactia content
+  if (manifest.exports === "topology" && !hasTopologyInline && !hasManifestExports && !hasDefExports) {
+    // All topology? Actually topology requires topology markers. If there are def exports only, flag mismatch
+  }
+  if (manifest.exports) {
+    const hasTopologyContent = hasTopologyInline || hasManifestExports;
+    const hasRegistryContent = hasDefExports || bareConstantPattern.test(indexSource);
+    if (manifest.exports === "topology" && hasRegistryContent && !hasTopologyContent) {
+      issues.push({
+        code: PublishValidationCode.MixedExportsMissing, // reuse as profile mismatch indicator
+        message: `pactia.toml declares exports = "topology" but index.pactia contains only registry exports (export def). Set exports = "registry" or add topology exports.`,
+      });
+    }
+    if (manifest.exports === "registry" && hasTopologyContent && !hasRegistryContent) {
+      issues.push({
+        code: PublishValidationCode.MixedExportsMissing,
+        message: `pactia.toml declares exports = "registry" but index.pactia contains only topology exports. Set exports = "topology" or add registry export defs.`,
+      });
+    }
+  }
+
   // Validate each manifest file exists, has content, and imports are declared
   for (const filePath of manifestFiles) {
     const fullPath = join(packageRoot, filePath);

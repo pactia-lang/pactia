@@ -11,6 +11,7 @@ export interface BuildOptions {
   readonly workspaceRoot?: string;
   readonly outputDir?: string;
   readonly bundleContext?: boolean;
+  readonly offline?: boolean;
 }
 
 export interface BuildResult {

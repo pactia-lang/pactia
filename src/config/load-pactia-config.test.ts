@@ -55,12 +55,23 @@ describe("loadPactiaConfig", () => {
     }
   });
 
-  it("throws when config file is missing", () => {
-    assert.throws(
-      () => loadPactiaConfig("/nonexistent/pactia-config.toml"),
-      (error: unknown) =>
-        error instanceof ResolveError && error.code === ResolveErrorCode.ConfigMissing,
-    );
+  it("auto-bootstraps when config file is missing", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pactia-config-bootstrap-"));
+    const path = join(dir, "config.toml");
+    try {
+      const config = loadPactiaConfig(path);
+      // Auto-bootstrapped config should have the default sources and hosts
+      assert.ok(config.sources.has("@pactia/"));
+      assert.ok(config.hosts.has("github.com"));
+      assert.ok(config.hosts.has("gitlab.com"));
+      assert.equal(config.prefer, DownloadPrefer.Http);
+      // Verify the file was actually created
+      const content = readFileSync(path, "utf8");
+      assert.ok(content.includes('[source."@pactia/"]'));
+      assert.ok(content.includes('[hosts."github.com"]'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
