@@ -6,6 +6,7 @@ import {
 
 export interface InstallOptions {
   readonly workspaceRoot?: string;
+  readonly offline?: boolean;
 }
 
 export class InstallError extends InstallWorkspaceError {}

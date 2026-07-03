@@ -94,7 +94,7 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       return;
     }
     case PactiaCommand.Install: {
-      const result = await runInstall({ workspaceRoot: args.workspaceRoot });
+      const result = await runInstall({ workspaceRoot: args.workspaceRoot, offline: args.offline });
       if (result.installed.length > 0) {
         process.stdout.write(`installed ${result.installed.join(", ")}\n`);
       }
@@ -131,6 +131,7 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
         workspaceRoot: args.workspaceRoot,
         outputDir: args.outputDir,
         bundleContext: args.bundleContext,
+        offline: args.offline,
       };
       const build = await runBuild(options);
 

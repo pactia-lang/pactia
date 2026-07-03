@@ -14,6 +14,7 @@ export interface CliArgs {
   readonly publishDryRun: boolean;
   readonly bundleContext: boolean;
   readonly json: boolean;
+  readonly offline: boolean;
 }
 
 export function parseCommand(value: string): PactiaCommand | undefined {
@@ -36,6 +37,7 @@ export function parseArgs(argv: string[]): CliArgs {
   let publishDryRun = false;
   let bundleContext = true;
   let json = false;
+  let offline = false;
 
   const positionals: string[] = [];
 
@@ -54,6 +56,8 @@ export function parseArgs(argv: string[]): CliArgs {
       publishDryRun = true;
     } else if (arg === "--no-bundle-context") {
       bundleContext = false;
+    } else if (arg === "--offline") {
+      offline = true;
     } else if (arg === "--json") {
       json = true;
     } else if (arg && !arg.startsWith("-")) {
@@ -92,6 +96,7 @@ export function parseArgs(argv: string[]): CliArgs {
     publishDryRun,
     bundleContext,
     json,
+    offline,
   };
 }
 
@@ -100,9 +105,9 @@ export function printUsage(): void {
     "Usage:\n" +
       "  pactia init <dir> [--name <ProductName>]\n" +
       "  pactia add <@scope/name> [range] [-C <workspace-dir>]\n" +
-      "  pactia install [-C <workspace-dir>]\n" +
+      "  pactia install [-C <workspace-dir>] [--offline]\n" +
       "  pactia update [<@scope/name>] [-C <workspace-dir>]\n" +
-      "  pactia build [-C <workspace-dir>] [-o <output-dir>] [--no-bundle-context]\n" +
+      "  pactia build [-C <workspace-dir>] [-o <output-dir>] [--no-bundle-context] [--offline]\n" +
       "  pactia why <@scope/name> [-C <workspace-dir>]\n" +
       "  pactia publish --dry-run [-C <package-dir>]\n" +
       "  pactia outdated [-C <workspace-dir>] [--json]\n" +
@@ -110,6 +115,6 @@ export function printUsage(): void {
       "  pactia remove <@scope/name> [-C <workspace-dir>]\n" +
       "  pactia rm <@scope/name> [-C <workspace-dir>]\n" +
       "\n" +
-      "Global options: --help, -h, --version, -v, --json\n",
+      "Global options: --help, -h, --version, -v, --json, --offline\n",
   );
 }
