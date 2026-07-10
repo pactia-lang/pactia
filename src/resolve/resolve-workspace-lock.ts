@@ -109,11 +109,11 @@ export async function resolveWorkspaceLock(workspaceRoot: string): Promise<Resol
 
   const workspace = parseWorkspaceToml(readFileSync(tomlPath, "utf8"));
   if (workspace.dependencies.size === 0) {
-    const emptyLock: PactiaLockManifest = { packages: [] };
-    if (existsSync(lockPath)) {
-      rmSync(lockPath);
-    }
-    return { lock: emptyLock, written: false, fetched: [] };
+    return {
+      lock: { packages: [] },
+      written: false,
+      fetched: [],
+    };
   }
 
   const roots = [...workspace.dependencies.entries()].map(([coordinate, range]) => ({

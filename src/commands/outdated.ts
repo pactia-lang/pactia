@@ -1,13 +1,16 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { listRemoteVersions } from "../resolve/package-tags.js";
 import { parseSemver, type SemverParts } from "../resolve/semver.js";
+import { versionIndexCachePath } from "../vendor/cache-paths.js";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
 import { parsePactiaLock } from "@pactia/pactiac";
 
 export interface OutdatedOptions {
   readonly workspaceRoot?: string;
   readonly json?: boolean;
+  /** When true, bypass the 5-min TTL version cache and force a fresh fetch. */
+  readonly noCache?: boolean;
 }
 
 export interface OutdatedEntry {
@@ -32,6 +35,13 @@ export function compareSemver(left: SemverParts, right: SemverParts): number {
   if (left.major !== right.major) return left.major - right.major;
   if (left.minor !== right.minor) return left.minor - right.minor;
   return left.patch - right.patch;
+}
+
+function clearVersionCache(coordinate: string): void {
+  const cachePath = versionIndexCachePath(coordinate);
+  if (existsSync(cachePath)) {
+    unlinkSync(cachePath);
+  }
 }
 
 export async function runOutdated(options: OutdatedOptions = {}): Promise<OutdatedResult> {
@@ -59,6 +69,9 @@ export async function runOutdated(options: OutdatedOptions = {}): Promise<Outdat
     let latest: string | undefined;
 
     try {
+      if (options.noCache) {
+        clearVersionCache(pkg.name);
+      }
       const versions = await listRemoteVersions(pkg.name);
       const semvers = versions
         .map((v) => ({ version: v, parsed: parseSemver(v) }))

@@ -11,4 +11,9 @@ export enum PactiaCommand {
   Clean = "clean",
   Remove = "remove",
   Rm = "rm",
+  List = "list",
+  Ls = "ls",
+  Info = "info",
+  Cache = "cache",
+  Vendor = "vendor",
 }

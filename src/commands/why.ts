@@ -7,6 +7,7 @@ import {
   formatWhyChain,
 } from "../resolve/dependency-graph.js";
 import { installLockedPackages } from "../resolve/lock-resolver.js";
+import { ensureVendoredPackages } from "../vendor/ensure-vendored.js";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
 
 export interface WhyOptions {
@@ -39,6 +40,13 @@ export async function runWhy(options: WhyOptions): Promise<WhyResult> {
 
   const coordinate = normalizeCoordinate(options.coordinate);
   const resolved = await installLockedPackages(workspaceRoot);
+
+  // Ensure vendored packages exist before building the dependency graph
+  // so that transitive dependency edges are complete (GAP-PM-051)
+  if (resolved.lock.packages.length > 0) {
+    ensureVendoredPackages(workspaceRoot, resolved.lock);
+  }
+
   const graph = buildLockDependencyGraph(workspaceRoot, resolved.lock);
   const chain = dependencyChainToTarget(graph, coordinate);
 

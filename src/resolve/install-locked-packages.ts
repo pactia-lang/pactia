@@ -50,8 +50,23 @@ function validateDirectDependencies(
   }
 }
 
+export class OfflineError extends Error {
+  constructor(
+    public readonly coordinate: string,
+    public readonly version: string,
+  ) {
+    super(
+      `package '${coordinate}@${version}' not in local cache; run without --offline to fetch`,
+    );
+    this.name = "OfflineError";
+  }
+}
+
 /** Install packages pinned in pactia.lock without re-resolving versions. */
-export async function installLockedPackages(workspaceRoot: string): Promise<ResolvedLock> {
+export async function installLockedPackages(
+  workspaceRoot: string,
+  offline?: boolean,
+): Promise<ResolvedLock> {
   const tomlPath = join(workspaceRoot, "pactia.toml");
   const workspace = parseWorkspaceToml(readFileSync(tomlPath, "utf8"));
 
@@ -66,6 +81,7 @@ export async function installLockedPackages(workspaceRoot: string): Promise<Reso
   const index = buildPackageIndex(workspaceRoot);
   const fetched: string[] = [];
   const visited = new Set<string>();
+  const activePath = new Set<string>();
   const queue = [...workspace.dependencies.keys()];
 
   while (queue.length > 0) {
@@ -74,6 +90,7 @@ export async function installLockedPackages(workspaceRoot: string): Promise<Reso
       continue;
     }
     visited.add(coordinate);
+    activePath.add(coordinate);
 
     const entry = entries.get(coordinate);
     if (!entry) {
@@ -85,10 +102,16 @@ export async function installLockedPackages(workspaceRoot: string): Promise<Reso
 
     const indexed = findIndexedPackage(index, coordinate, entry.version);
     const hadLocal = indexed?.rootDir !== undefined;
+
+    if (offline && !hadLocal) {
+      throw new OfflineError(coordinate, entry.version);
+    }
+
     const cacheDir = await materializePackageCache(
       coordinate,
       entry.version,
       indexed?.rootDir,
+      offline,
     );
     if (!hadLocal) {
       fetched.push(`${coordinate}@${entry.version}`);
@@ -103,10 +126,18 @@ export async function installLockedPackages(workspaceRoot: string): Promise<Reso
     }
 
     for (const [depCoordinate] of readPackageDependencies(cacheDir)) {
+      if (activePath.has(depCoordinate)) {
+        console.warn(
+          `warning: circular dependency detected: ${[...activePath].join(" → ")} → ${depCoordinate}`,
+        );
+        continue;
+      }
       if (!visited.has(depCoordinate)) {
         queue.push(depCoordinate);
       }
     }
+
+    activePath.delete(coordinate);
   }
 
   for (const lockEntry of lock.packages) {

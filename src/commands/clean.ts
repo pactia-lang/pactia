@@ -1,10 +1,13 @@
 import { existsSync, rmSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
 
 export interface CleanOptions {
   readonly workspaceRoot?: string;
   readonly outputDir?: string;
+  /** When true, only clean ~/.pactia/cache/ — skip workspace dirs. */
+  readonly cacheOnly?: boolean;
 }
 
 export interface CleanResult {
@@ -21,6 +24,7 @@ export class CleanError extends Error {
 
 const DEFAULT_OUTPUT_DIR = "out";
 const VENDOR_DIR = ".pactia";
+const GLOBAL_CACHE_DIR = join(homedir(), ".pactia", "cache");
 
 export function runClean(options: CleanOptions = {}): CleanResult {
   let workspaceRoot: string;
@@ -33,6 +37,14 @@ export function runClean(options: CleanOptions = {}): CleanResult {
   }
 
   const removed: string[] = [];
+
+  if (options.cacheOnly) {
+    if (existsSync(GLOBAL_CACHE_DIR)) {
+      rmSync(GLOBAL_CACHE_DIR, { recursive: true, force: true });
+      removed.push(GLOBAL_CACHE_DIR);
+    }
+    return { workspaceRoot, removed };
+  }
 
   // Remove vendor directory
   const vendorPath = join(workspaceRoot, VENDOR_DIR);

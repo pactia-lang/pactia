@@ -10,9 +10,17 @@ function unquote(value: string): string {
   return value.trim().replace(/^["']|["']$/g, "");
 }
 
+export class WorkspaceTomlError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WorkspaceTomlError";
+  }
+}
+
 export function parseWorkspaceToml(source: string): WorkspaceToml {
   let name = "unnamed";
   let version = "0.1.0";
+  let sectionFound = false;
   const dependencies = new Map<string, string>();
   let section: TomlSection = "none";
 
@@ -22,6 +30,7 @@ export function parseWorkspaceToml(source: string): WorkspaceToml {
 
     if (line === "[package]") {
       section = "package";
+      sectionFound = true;
       continue;
     }
     if (line === "[dependencies]") {
@@ -29,6 +38,12 @@ export function parseWorkspaceToml(source: string): WorkspaceToml {
       continue;
     }
     if (line.startsWith("[")) {
+      const lower = line.toLowerCase();
+      if (lower === "[package]") {
+        console.warn(`pactia.toml: section header '${line}' has wrong case — use '[package]'`);
+      } else if (lower === "[dependencies]") {
+        console.warn(`pactia.toml: section header '${line}' has wrong case — use '[dependencies]'`);
+      }
       section = "none";
       continue;
     }
@@ -44,6 +59,12 @@ export function parseWorkspaceToml(source: string): WorkspaceToml {
     } else if (section === "dependencies") {
       dependencies.set(key, value);
     }
+  }
+
+  if (!sectionFound) {
+    throw new WorkspaceTomlError(
+      "pactia.toml is missing required [package] section",
+    );
   }
 
   return { name, version, dependencies };
