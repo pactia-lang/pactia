@@ -10,7 +10,7 @@ export enum OutputFormat {
 export function writeCompileOutput(
   files: ReadonlyMap<string, string>,
   outputDir: string,
-  format: OutputFormat = OutputFormat.Json,
+  format: OutputFormat = OutputFormat.Yaml,
 ): readonly string[] {
   const ext = format === OutputFormat.Yaml ? ".yaml" : ".json";
   const written: string[] = [];

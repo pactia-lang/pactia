@@ -14,14 +14,16 @@ pactia init <dir> [--name <ProductName>]
 pactia add <@scope/name> [range] [-C <workspace-dir>]
 pactia install [-C <workspace-dir>]
 pactia update [<@scope/name>] [-C <workspace-dir>]
-pactia build [-C <workspace-dir>] [-o <output-dir>] [--no-bundle-context] [--json]
+pactia build [-C <workspace-dir>] [-o <output-dir>] [--no-bundle-context] [--json|--format json]
 pactia why <@scope/name> [-C <workspace-dir>] [--json]
 pactia publish --dry-run [-C <package-dir>]
 pactia outdated [-C <workspace-dir>] [--json]
 pactia clean [-C <workspace-dir>] [-o <output-dir>]
 ```
 
-`pactia add` and `pactia update` resolve semver ranges and write `pactia.lock`. `pactia install` and `pactia build` use the lock only (pinned versions, digest verify). `pactia why` explains a locked dependency chain. `pactia publish --dry-run` checks a package tree before you tag. `pactia outdated` compares lock versions against available git tags. `pactia clean` removes `.pactia/packages/` and build output. `--json` outputs structured JSON for `build`, `why`, and `outdated` (CI-friendly). Dependencies download into `~/.pactia/packages/` and copy into `.pactia/packages/`. Configure remotes in `~/.pactia/config.toml` (see `config/config.example.toml`). Set `PACTIA_VENDOR_ROOT` for a local package index during development.
+`pactia add` and `pactia update` resolve semver ranges and write `pactia.lock`. `pactia install` and `pactia build` use the lock only (pinned versions, digest verify). `pactia why` explains a locked dependency chain. `pactia publish --dry-run` checks a package tree before you tag. `pactia outdated` compares lock versions against available git tags. `pactia clean` removes `.pactia/packages/` and build output.
+
+Default build output is **YAML** (`.yaml` files). Use `--json` to produce JSON (`.json` files). `--json` also enables structured JSON output for `build`, `why`, and `outdated` (CI-friendly). Dependencies download into `~/.pactia/packages/` and copy into `.pactia/packages/`. Configure remotes in `~/.pactia/config.toml` (see `config/config.example.toml`). Set `PACTIA_VENDOR_ROOT` for a local package index during development.
 
 Release packages with `git tag v{version} && git push` after a successful dry-run.
 
@@ -59,7 +61,7 @@ my-product/
   fragments/…         # common convention (relay, marketplace)
   .pactia/packages/
   out/
-    input/              # IR tree
+    input/              # IR tree (YAML by default, .yaml files; use --json for .json)
 ```
 
 ## Manifest
@@ -83,7 +85,7 @@ Multi-file workspaces use **import + attach** in `product.pactia`:
 - **Package imports** (`import { @api, #database, … } from @pactia/kernel`) — each file imports the symbols it uses. `pactia.toml` / `pactia.lock` pin versions; vendored packages land in `.pactia/packages/`.
 - **Fragment imports** (`import { CatalogAdminService } from ./fragments/…`) — register `export module` / `export service` / `export model` symbols for attach.
 
-Fragment files carry their own `@pactia/*` imports — no centralization in `product.pactia`. On `pactia build`, pactiac collects imports from all files and splices attach bodies into one program. Context attachments lower to `context[]` with `name`; `pactia build` writes `context.index.json` using the same `name` field.
+Fragment files carry their own `@pactia/*` imports — no centralization in `product.pactia`. On `pactia build`, pactiac collects imports from all files and splices attach bodies into one program. Context attachments lower to `context[]` with `name`; `pactia build` writes `context.index.yaml` (or `.json` with `--json`) using the same `name` field.
 
 ```pactia
 // product.pactia

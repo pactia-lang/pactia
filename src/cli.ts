@@ -156,12 +156,14 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       return;
     }
     case PactiaCommand.Build: {
-      const buildFormat: OutputFormat | undefined =
-        args.outputFormat !== undefined &&
-        (args.outputFormat === "yaml" || args.outputFormat === "yml")
-          ? OutputFormat.Yaml
-          : args.outputFormat !== undefined
-            ? OutputFormat.Json
+      const buildFormat: OutputFormat | undefined = args.outputJson
+        ? OutputFormat.Json
+        : args.outputFormat !== undefined &&
+          (args.outputFormat === "json")
+          ? OutputFormat.Json
+          : args.outputFormat !== undefined &&
+            (args.outputFormat === "yaml" || args.outputFormat === "yml")
+            ? OutputFormat.Yaml
             : undefined;
 
       const build = await runBuild({

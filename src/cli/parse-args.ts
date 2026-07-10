@@ -24,6 +24,7 @@ export interface CliArgs {
   readonly verbose: boolean;
   readonly quiet: boolean;
   readonly outputFormat: string | undefined;
+  readonly outputJson: boolean;
 }
 
 export function parseCommand(value: string): PactiaCommand | undefined {
@@ -56,6 +57,7 @@ export function parseArgs(argv: string[]): CliArgs {
   let verbose = false;
   let quiet = false;
   let outputFormat: string | undefined;
+  let outputJson = false;
 
   const positionals: string[] = [];
 
@@ -80,6 +82,7 @@ export function parseArgs(argv: string[]): CliArgs {
     } else if (arg === "--json") {
       json = true;
       listJson = true;
+      outputJson = true;
     } else if (arg === "--cache") {
       cleanCache = true;
     } else if (arg === "--no-cache") {
@@ -146,6 +149,7 @@ export function parseArgs(argv: string[]): CliArgs {
     verbose,
     quiet,
     outputFormat,
+    outputJson,
   };
 }
 
