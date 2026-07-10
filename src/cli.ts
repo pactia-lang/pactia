@@ -15,6 +15,7 @@ import { runOutdated, OutdatedError } from "./commands/outdated.js";
 import { runClean, CleanError } from "./commands/clean.js";
 import { runRemove, RemoveError } from "./commands/remove.js";
 import { runList, ListError } from "./commands/list.js";
+import { OutputFormat } from "./io/write-output.js";
 import { runInfo, InfoError } from "./commands/info.js";
 import { runVendor, VendorCmdError } from "./commands/vendor.js";
 import { ResolveError } from "./domain/resolve-error.js";
@@ -155,13 +156,23 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       return;
     }
     case PactiaCommand.Build: {
-      const options = {
+      const buildFormat: OutputFormat | undefined = args.outputJson
+        ? OutputFormat.Json
+        : args.outputFormat !== undefined &&
+          (args.outputFormat === "json")
+          ? OutputFormat.Json
+          : args.outputFormat !== undefined &&
+            (args.outputFormat === "yaml" || args.outputFormat === "yml")
+            ? OutputFormat.Yaml
+            : undefined;
+
+      const build = await runBuild({
         workspaceRoot: args.workspaceRoot,
         outputDir: args.outputDir,
         bundleContext: args.bundleContext,
         offline: args.offline,
-      };
-      const build = await runBuild(options);
+        format: buildFormat,
+      });
 
       if (args.json) {
         process.stdout.write(

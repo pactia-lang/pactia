@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { compileWorkspace, parsePactiaLock } from "@pactia/pactiac";
 import { buildContextArtifacts, ContextBuildError } from "../context/build-context-artifacts.js";
-import { writeCompileOutput } from "../io/write-output.js";
+import { writeCompileOutput, OutputFormat } from "../io/write-output.js";
 import { installLockedPackages } from "../resolve/lock-resolver.js";
 import { ensureVendoredPackages, VendorError } from "../vendor/ensure-vendored.js";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
@@ -12,6 +12,7 @@ export interface BuildOptions {
   readonly outputDir?: string;
   readonly bundleContext?: boolean;
   readonly offline?: boolean;
+  readonly format?: OutputFormat;
 }
 
 export interface BuildResult {
@@ -73,7 +74,13 @@ export async function runBuild(options: BuildOptions = {}): Promise<BuildResult>
   }
 
   const outputDir = resolve(workspaceRoot, options.outputDir ?? DEFAULT_OUTPUT_DIR);
-  let filesWritten = [...writeCompileOutput(compileResult.files, outputDir)];
+  let filesWritten = [
+    ...writeCompileOutput(
+      compileResult.files,
+      outputDir,
+      options.format ?? OutputFormat.Json,
+    ),
+  ];
 
   let contextIndexPath: string | undefined;
   const contextWarnings: string[] = [];

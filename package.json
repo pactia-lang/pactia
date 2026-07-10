@@ -21,9 +21,11 @@
     "hooks:install": "bash scripts/install-hooks.sh"
   },
   "dependencies": {
-    "@pactia/pactiac": "file:../pactiac"
+    "@pactia/pactiac": "file:../pactiac",
+    "js-yaml": "^5.2.1"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.2",
     "c8": "^11.0.0",
     "tsx": "^4.19.2",

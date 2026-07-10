@@ -17,12 +17,12 @@ describe("writeCompileOutput", () => {
         outputDir,
       );
       assert.deepEqual(written.sort(), [
-        "input/modules/core.module.json",
-        "input/product.json",
+        "input/modules/core.module.yaml",
+        "input/product.yaml",
       ]);
       assert.equal(
-        readFileSync(join(outputDir, "input/product.json"), "utf8"),
-        "{\"product\":{}}",
+        readFileSync(join(outputDir, "input/product.yaml"), "utf8"),
+        "product: {}\n",
       );
     } finally {
       rmSync(outputDir, { recursive: true, force: true });

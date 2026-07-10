@@ -23,6 +23,8 @@ export interface CliArgs {
   readonly dryRun: boolean;
   readonly verbose: boolean;
   readonly quiet: boolean;
+  readonly outputFormat: string | undefined;
+  readonly outputJson: boolean;
 }
 
 export function parseCommand(value: string): PactiaCommand | undefined {
@@ -54,6 +56,8 @@ export function parseArgs(argv: string[]): CliArgs {
   let dryRun = false;
   let verbose = false;
   let quiet = false;
+  let outputFormat: string | undefined;
+  let outputJson = false;
 
   const positionals: string[] = [];
 
@@ -78,10 +82,14 @@ export function parseArgs(argv: string[]): CliArgs {
     } else if (arg === "--json") {
       json = true;
       listJson = true;
+      outputJson = true;
     } else if (arg === "--cache") {
       cleanCache = true;
     } else if (arg === "--no-cache") {
       noCache = true;
+    } else if ((arg === "--format" || arg === "-f") && optionArgs[i + 1]) {
+      outputFormat = optionArgs[i + 1];
+      i += 1;
     } else if (arg === "--verbose") {
       verbose = true;
     } else if (arg === "--quiet") {
@@ -140,6 +148,8 @@ export function parseArgs(argv: string[]): CliArgs {
     dryRun,
     verbose,
     quiet,
+    outputFormat,
+    outputJson,
   };
 }
 
