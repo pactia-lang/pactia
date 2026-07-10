@@ -41,7 +41,7 @@ describe("installWorkspacePackages", () => {
       await resolveWorkspaceLock(workspace);
       const before = readFileSync(join(workspace, "pactia.lock"), "utf8");
 
-      const result = await installWorkspacePackages(workspace);
+      const result = await installWorkspacePackages({ workspaceRoot: workspace });
       assert.equal(result.lockWritten, false);
       assert.equal(readFileSync(join(workspace, "pactia.lock"), "utf8"), before);
       assert.ok(result.vendoredPackages.length > 0);
