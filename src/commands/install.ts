@@ -14,5 +14,8 @@ export class InstallError extends InstallWorkspaceError {}
 export type InstallResult = InstallWorkspaceResult;
 
 export async function runInstall(options: InstallOptions = {}): Promise<InstallResult> {
-  return installWorkspacePackages(options.workspaceRoot);
+  return installWorkspacePackages({
+    workspaceRoot: options.workspaceRoot,
+    offline: options.offline,
+  });
 }

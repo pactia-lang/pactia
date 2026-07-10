@@ -14,19 +14,30 @@ import { runWhy, WhyError } from "./commands/why.js";
 import { runOutdated, OutdatedError } from "./commands/outdated.js";
 import { runClean, CleanError } from "./commands/clean.js";
 import { runRemove, RemoveError } from "./commands/remove.js";
+import { runList, ListError } from "./commands/list.js";
+import { runInfo, InfoError } from "./commands/info.js";
+import { runVendor, VendorCmdError } from "./commands/vendor.js";
 import { ResolveError } from "./domain/resolve-error.js";
 import { WorkspaceError } from "./workspace/find-workspace.js";
 
 function cliVersion(): string {
-  const packageJsonPath = join(
-    dirname(fileURLToPath(import.meta.url)),
-    "..",
-    "package.json",
-  );
-  const manifest = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
-    version?: string;
-  };
-  return manifest.version ?? "0.0.0";
+  const envVersion = process.env["PACTIA_VERSION"];
+  if (envVersion) {
+    return envVersion;
+  }
+  try {
+    const packageJsonPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "package.json",
+    );
+    const manifest = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+      version?: string;
+    };
+    return manifest.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
 }
 
 function handleError(error: unknown): void {
@@ -41,7 +52,10 @@ function handleError(error: unknown): void {
     error instanceof PublishError ||
     error instanceof OutdatedError ||
     error instanceof CleanError ||
-    error instanceof RemoveError
+    error instanceof RemoveError ||
+    error instanceof ListError ||
+    error instanceof InfoError ||
+    error instanceof VendorCmdError
   ) {
     process.stderr.write(`error: ${error.message}\n`);
     process.exit(1);
@@ -71,6 +85,12 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       if (!args.addCoordinate) {
         printUsage();
         process.exit(1);
+        return;
+      }
+      if (args.dryRun) {
+        process.stdout.write(
+          `Would add ${args.addCoordinate} = "${args.addRange ?? "^1.0"}" to pactia.toml\n`,
+        );
         return;
       }
       const result = await runAdd({
@@ -105,6 +125,14 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       return;
     }
     case PactiaCommand.Update: {
+      if (args.dryRun) {
+        process.stdout.write(
+          args.updateCoordinate
+            ? `Would update ${args.updateCoordinate}\n`
+            : `Would update all dependencies\n`,
+        );
+        return;
+      }
       const result = await runUpdate({
         workspaceRoot: args.workspaceRoot,
         coordinate: args.updateCoordinate,
@@ -189,6 +217,7 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       const result = await runOutdated({
         workspaceRoot: args.workspaceRoot,
         json: args.json,
+        noCache: args.noCache,
       });
       if (args.json) {
         process.stdout.write(`${JSON.stringify(result.entries)}\n`);
@@ -211,6 +240,7 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
       const result = runClean({
         workspaceRoot: args.workspaceRoot,
         outputDir: args.outputDir,
+        cacheOnly: args.cleanCache,
       });
       if (result.removed.length > 0) {
         for (const path of result.removed) {
@@ -233,9 +263,83 @@ async function runCommand(args: ReturnType<typeof parseArgs>): Promise<void> {
         coordinate: args.removeCoordinate,
       });
       if (result.removed) {
-        process.stdout.write(`removed ${result.coordinate} from pactia.toml\n`);
+        const messages: string[] = [`removed ${result.coordinate} from pactia.toml`];
+        if (result.lockUpdated) {
+          messages.push(`updated pactia.lock`);
+        }
+        process.stdout.write(`${messages.join(", ")}\n`);
       } else {
         process.stdout.write(`dependency '${result.coordinate}' not found in pactia.toml\n`);
+      }
+      return;
+    }
+    case PactiaCommand.List:
+    case PactiaCommand.Ls: {
+      const listResult = runList({
+        workspaceRoot: args.workspaceRoot,
+        json: args.listJson,
+      });
+      if (args.listJson) {
+        process.stdout.write(`${JSON.stringify(listResult.packages)}\n`);
+      } else {
+        if (listResult.packages.length === 0) {
+          process.stdout.write("No packages installed.\n");
+        } else {
+          for (const pkg of listResult.packages) {
+            process.stdout.write(`${pkg.name} ${pkg.version} (${pkg.digest})\n`);
+          }
+        }
+      }
+      return;
+    }
+    case PactiaCommand.Info: {
+      if (!args.infoCoordinate) {
+        printUsage();
+        process.exit(1);
+        return;
+      }
+      const infoResult = runInfo({
+        workspaceRoot: args.workspaceRoot,
+        coordinate: args.infoCoordinate,
+      });
+      process.stdout.write(`${infoResult.coordinate} ${infoResult.version}\n`);
+      process.stdout.write(`location: ${infoResult.location}\n`);
+      const depKeys = Object.keys(infoResult.dependencies);
+      if (depKeys.length > 0) {
+        process.stdout.write(`dependencies:\n`);
+        for (const dep of depKeys) {
+          process.stdout.write(`  ${dep} = "${infoResult.dependencies[dep]}"\n`);
+        }
+      }
+      return;
+    }
+    case PactiaCommand.Vendor: {
+      const vendorResult = runVendor({ workspaceRoot: args.workspaceRoot });
+      if (vendorResult.vendoredPackages.length > 0) {
+        process.stdout.write(`vendored ${vendorResult.vendoredPackages.join(", ")}\n`);
+      } else {
+        process.stdout.write("No packages to vendor.\n");
+      }
+      return;
+    }
+    case PactiaCommand.Cache: {
+      if (args.cacheSubcommand === "clean") {
+        const cacheResult = runClean({
+          workspaceRoot: args.workspaceRoot,
+          cacheOnly: true,
+        });
+        if (cacheResult.removed.length > 0) {
+          process.stdout.write(`removed ${cacheResult.removed.join(", ")}\n`);
+        } else {
+          process.stdout.write("Cache is empty.\n");
+        }
+      } else if (args.cacheSubcommand === "path") {
+        const { globalPackageCacheDir, versionIndexCacheDir } = await import("./vendor/cache-paths.js");
+        process.stdout.write(`package cache: ${globalPackageCacheDir()}\n`);
+        process.stdout.write(`version cache: ${versionIndexCacheDir()}\n`);
+      } else {
+        process.stderr.write("Usage: pactia cache [clean|path]\n");
+        process.exit(1);
       }
       return;
     }

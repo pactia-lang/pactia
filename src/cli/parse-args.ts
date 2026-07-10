@@ -15,6 +15,14 @@ export interface CliArgs {
   readonly bundleContext: boolean;
   readonly json: boolean;
   readonly offline: boolean;
+  readonly cleanCache: boolean;
+  readonly noCache: boolean;
+  readonly listJson: boolean;
+  readonly infoCoordinate: string | undefined;
+  readonly cacheSubcommand: string | undefined;
+  readonly dryRun: boolean;
+  readonly verbose: boolean;
+  readonly quiet: boolean;
 }
 
 export function parseCommand(value: string): PactiaCommand | undefined {
@@ -38,6 +46,14 @@ export function parseArgs(argv: string[]): CliArgs {
   let bundleContext = true;
   let json = false;
   let offline = false;
+  let cleanCache = false;
+  let noCache = false;
+  let listJson = false;
+  let infoCoordinate: string | undefined;
+  let cacheSubcommand: string | undefined;
+  let dryRun = false;
+  let verbose = false;
+  let quiet = false;
 
   const positionals: string[] = [];
 
@@ -54,12 +70,22 @@ export function parseArgs(argv: string[]): CliArgs {
       i += 1;
     } else if (arg === "--dry-run") {
       publishDryRun = true;
+      dryRun = true;
     } else if (arg === "--no-bundle-context") {
       bundleContext = false;
     } else if (arg === "--offline") {
       offline = true;
     } else if (arg === "--json") {
       json = true;
+      listJson = true;
+    } else if (arg === "--cache") {
+      cleanCache = true;
+    } else if (arg === "--no-cache") {
+      noCache = true;
+    } else if (arg === "--verbose") {
+      verbose = true;
+    } else if (arg === "--quiet") {
+      quiet = true;
     } else if (arg && !arg.startsWith("-")) {
       positionals.push(arg);
     }
@@ -81,6 +107,15 @@ export function parseArgs(argv: string[]): CliArgs {
   if (commandRaw === PactiaCommand.Remove || commandRaw === PactiaCommand.Rm) {
     removeCoordinate = positionals[0];
   }
+  if (commandRaw === PactiaCommand.List || commandRaw === PactiaCommand.Ls) {
+    // list takes no positionals, optional --json
+  }
+  if (commandRaw === PactiaCommand.Info) {
+    infoCoordinate = positionals[0];
+  }
+  if (commandRaw === PactiaCommand.Cache) {
+    cacheSubcommand = positionals[0];
+  }
 
   return {
     command: parseCommand(commandRaw),
@@ -97,6 +132,14 @@ export function parseArgs(argv: string[]): CliArgs {
     bundleContext,
     json,
     offline,
+    cleanCache,
+    noCache,
+    listJson,
+    infoCoordinate,
+    cacheSubcommand,
+    dryRun,
+    verbose,
+    quiet,
   };
 }
 
@@ -110,11 +153,18 @@ export function printUsage(): void {
       "  pactia build [-C <workspace-dir>] [-o <output-dir>] [--no-bundle-context] [--offline]\n" +
       "  pactia why <@scope/name> [-C <workspace-dir>]\n" +
       "  pactia publish --dry-run [-C <package-dir>]\n" +
-      "  pactia outdated [-C <workspace-dir>] [--json]\n" +
-      "  pactia clean [-C <workspace-dir>] [-o <output-dir>]\n" +
+      "  pactia outdated [-C <workspace-dir>] [--json] [--no-cache]\n" +
+      "  pactia clean [-C <workspace-dir>] [-o <output-dir>] [--cache]\n" +
       "  pactia remove <@scope/name> [-C <workspace-dir>]\n" +
       "  pactia rm <@scope/name> [-C <workspace-dir>]\n" +
+      "  pactia list [-C <workspace-dir>] [--json]\n" +
+      "  pactia ls [-C <workspace-dir>] [--json]\n" +
+      "  pactia info <@scope/name> [-C <workspace-dir>]\n" +
+      "  pactia cache [clean|path] [-C <workspace-dir>]\n" +
+      "  pactia vendor [-C <workspace-dir>]\n" +
       "\n" +
-      "Global options: --help, -h, --version, -v, --json, --offline\n",
+      "Global options: --help, -h, --version, -v, --json, --offline\n" +
+      "pactia add and pactia update accept --dry-run to preview without modifying files.\n" +
+      "Global flags: --verbose, --quiet, --help, -h, --version, -v, --json, --offline\n",
   );
 }

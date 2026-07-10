@@ -89,19 +89,46 @@ function rangeHasPrerelease(range: string): boolean {
   return parseSemver(range.trim())?.prerelease !== undefined;
 }
 
-/** True when `version` satisfies a Cargo-style range (`1.0.0`, `^1.0`, `^1.0.0`). */
+/** Parsed range outcome — caller can check why a range didn't match. */
+export enum SemverRangeKind {
+  Unrecognized = "unrecognized",
+  Exact = "exact",
+  Caret = "caret",
+  Tilde = "tilde",
+}
+
+export interface SemverRangeResult {
+  readonly kind: SemverRangeKind;
+  readonly satisfied: boolean;
+}
+
+/**
+ * True when `version` satisfies a Cargo-style range.
+ * Supports: exact (`1.0.0`), caret (`^1.0`, `^1.0.0`), tilde (`~1.2`, `~1.2.3`).
+ * Unrecognized range syntax returns `RangeKind.Unrecognized`.
+ */
 export function satisfiesSemver(version: string, range: string): boolean {
+  return checkSemverRange(version, range).satisfied;
+}
+
+export function checkSemverRange(version: string, range: string): SemverRangeResult {
   const parts = parseSemver(version);
   if (!parts) {
-    return false;
+    return { kind: SemverRangeKind.Unrecognized, satisfied: false };
   }
 
   const trimmed = range.trim();
+
+  // Exact version match
   const exact = parseSemver(trimmed);
   if (exact) {
-    return compareSemver(version, trimmed) === 0;
+    return {
+      kind: SemverRangeKind.Exact,
+      satisfied: compareSemver(version, trimmed) === 0,
+    };
   }
 
+  // Caret range: ^1.2.3
   const caret = /^\^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?$/.exec(trimmed);
   if (caret) {
     const major = Number(caret[1]);
@@ -110,36 +137,74 @@ export function satisfiesSemver(version: string, range: string): boolean {
     const rangePrerelease = caret[4];
 
     if (parts.major !== major) {
-      return false;
+      return { kind: SemverRangeKind.Caret, satisfied: false };
     }
     if (parts.prerelease && !rangePrerelease && !rangeHasPrerelease(trimmed)) {
-      return false;
+      return { kind: SemverRangeKind.Caret, satisfied: false };
     }
     if (caret[2] === undefined) {
-      return true;
+      return { kind: SemverRangeKind.Caret, satisfied: true };
     }
     if (parts.minor > minor) {
-      return true;
+      return { kind: SemverRangeKind.Caret, satisfied: true };
     }
     if (parts.minor < minor) {
-      return false;
+      return { kind: SemverRangeKind.Caret, satisfied: false };
     }
     if (caret[3] === undefined) {
-      return true;
+      return { kind: SemverRangeKind.Caret, satisfied: true };
     }
     if (parts.patch > patch) {
-      return true;
+      return { kind: SemverRangeKind.Caret, satisfied: true };
     }
     if (parts.patch < patch) {
-      return false;
+      return { kind: SemverRangeKind.Caret, satisfied: false };
     }
     if (rangePrerelease) {
-      return parts.prerelease === rangePrerelease;
+      return {
+        kind: SemverRangeKind.Caret,
+        satisfied: parts.prerelease === rangePrerelease,
+      };
     }
-    return !parts.prerelease;
+    return { kind: SemverRangeKind.Caret, satisfied: !parts.prerelease };
   }
 
-  return false;
+  // Tilde range: ~1.2.3
+  const tilde = /^~(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?$/.exec(trimmed);
+  if (tilde) {
+    const major = Number(tilde[1]);
+    const minor = tilde[2] !== undefined ? Number(tilde[2]) : 0;
+    const patch = tilde[3] !== undefined ? Number(tilde[3]) : 0;
+    const rangePrerelease = tilde[4];
+
+    if (parts.major !== major) {
+      return { kind: SemverRangeKind.Tilde, satisfied: false };
+    }
+    if (parts.prerelease && !rangePrerelease) {
+      return { kind: SemverRangeKind.Tilde, satisfied: false };
+    }
+    if (tilde[2] === undefined) {
+      return { kind: SemverRangeKind.Tilde, satisfied: true };
+    }
+    if (parts.minor !== minor) {
+      return { kind: SemverRangeKind.Tilde, satisfied: false };
+    }
+    if (tilde[3] === undefined) {
+      return { kind: SemverRangeKind.Tilde, satisfied: true };
+    }
+    if (parts.patch < patch) {
+      return { kind: SemverRangeKind.Tilde, satisfied: false };
+    }
+    if (rangePrerelease) {
+      return {
+        kind: SemverRangeKind.Tilde,
+        satisfied: parts.prerelease === rangePrerelease,
+      };
+    }
+    return { kind: SemverRangeKind.Tilde, satisfied: !parts.prerelease };
+  }
+
+  return { kind: SemverRangeKind.Unrecognized, satisfied: false };
 }
 
 export function pickBestVersion(available: readonly string[], range: string): string | undefined {

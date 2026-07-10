@@ -3,6 +3,11 @@ import { installLockedPackages } from "../resolve/lock-resolver.js";
 import { ensureVendoredPackages, VendorError } from "../vendor/ensure-vendored.js";
 import { findWorkspaceRoot, WorkspaceError } from "../workspace/find-workspace.js";
 
+export interface InstallWorkspaceOptions {
+  readonly workspaceRoot?: string;
+  readonly offline?: boolean;
+}
+
 export interface InstallWorkspaceResult {
   readonly workspaceRoot: string;
   readonly lockWritten: boolean;
@@ -18,12 +23,12 @@ export class InstallWorkspaceError extends Error {
 }
 
 export async function installWorkspacePackages(
-  workspaceRootInput?: string,
+  options: InstallWorkspaceOptions = {},
 ): Promise<InstallWorkspaceResult> {
   let workspaceRoot: string;
   try {
-    workspaceRoot = workspaceRootInput
-      ? resolve(workspaceRootInput)
+    workspaceRoot = options.workspaceRoot
+      ? resolve(options.workspaceRoot)
       : findWorkspaceRoot();
   } catch (error) {
     throw error instanceof WorkspaceError
@@ -31,7 +36,7 @@ export async function installWorkspacePackages(
       : new InstallWorkspaceError(String(error));
   }
 
-  const resolved = await installLockedPackages(workspaceRoot);
+  const resolved = await installLockedPackages(workspaceRoot, options.offline);
 
   let vendoredPackages: readonly string[] = [];
   try {

@@ -1,5 +1,12 @@
 import type { PactiaLockManifest } from "@pactia/pactiac";
 
+export interface LockPackageEntry {
+  readonly name: string;
+  readonly version: string;
+  readonly digest: string;
+  readonly range?: string;
+}
+
 export function serializePactiaLock(lock: PactiaLockManifest): string {
   const lines = ["lockVersion = 1", ""];
   const packages = [...lock.packages].sort((left, right) =>
@@ -11,6 +18,10 @@ export function serializePactiaLock(lock: PactiaLockManifest): string {
     lines.push(`name = "${entry.name}"`);
     lines.push(`version = "${entry.version}"`);
     lines.push(`digest = "${entry.digest}"`);
+    const extended = entry as LockPackageEntry;
+    if (extended.range) {
+      lines.push(`range = "${extended.range}"`);
+    }
     lines.push("");
   }
 

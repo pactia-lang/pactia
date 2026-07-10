@@ -133,22 +133,44 @@ export function validatePublishPackage(packageRootInput: string): PublishDryRunR
   }
 
   // Validate declared exports profile against index.pactia content
-  if (manifest.exports === "topology" && !hasTopologyInline && !hasManifestExports && !hasDefExports) {
-    // All topology? Actually topology requires topology markers. If there are def exports only, flag mismatch
-  }
+  const hasTopologyContent = hasTopologyInline || hasManifestExports;
+  const hasRegistryContent = hasDefExports || bareConstantPattern.test(indexSource);
+
   if (manifest.exports) {
-    const hasTopologyContent = hasTopologyInline || hasManifestExports;
-    const hasRegistryContent = hasDefExports || bareConstantPattern.test(indexSource);
+    // Profile mismatch: topology declared but only registry content present
     if (manifest.exports === "topology" && hasRegistryContent && !hasTopologyContent) {
       issues.push({
-        code: PublishValidationCode.MixedExportsMissing, // reuse as profile mismatch indicator
+        code: PublishValidationCode.MixedExportsMissing,
         message: `pactia.toml declares exports = "topology" but index.pactia contains only registry exports (export def). Set exports = "registry" or add topology exports.`,
       });
     }
+    // Profile mismatch: registry declared but only topology content present
     if (manifest.exports === "registry" && hasTopologyContent && !hasRegistryContent) {
       issues.push({
         code: PublishValidationCode.MixedExportsMissing,
         message: `pactia.toml declares exports = "registry" but index.pactia contains only topology exports. Set exports = "topology" or add registry export defs.`,
+      });
+    }
+    // Topology declared but empty — warn about empty topology package
+    if (manifest.exports === "topology" && !hasTopologyContent && !hasRegistryContent) {
+      issues.push({
+        code: PublishValidationCode.MixedExportsMissing,
+        message: `pactia.toml declares exports = "topology" but index.pactia contains no topology exports. Add export module, export service, or export model declarations.`,
+      });
+    }
+    // Both present without mixed-exports opt-in — flag regardless of declared profile
+    if (hasRegistryContent && hasTopologyContent && !manifest.mixedExports) {
+      issues.push({
+        code: PublishValidationCode.MixedExportsMissing,
+        message: "index.pactia has both registry defs and topology exports — add 'mixed-exports = true' to pactia.toml [package]",
+      });
+    }
+  } else {
+    // No exports field declared — still detect both types being present without opt-in
+    if (hasRegistryContent && hasTopologyContent && !manifest.mixedExports) {
+      issues.push({
+        code: PublishValidationCode.MixedExportsMissing,
+        message: "index.pactia has both registry defs and topology exports — add 'mixed-exports = true' to pactia.toml [package]",
       });
     }
   }

@@ -109,6 +109,7 @@ export async function materializePackageCache(
   coordinate: string,
   version: string,
   localSourceDir?: string,
+  _offline?: boolean,
 ): Promise<string> {
   const cacheDir = join(
     globalPackageCacheDir(),

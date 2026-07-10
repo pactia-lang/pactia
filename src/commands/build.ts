@@ -43,7 +43,7 @@ export async function runBuild(options: BuildOptions = {}): Promise<BuildResult>
     throw error instanceof WorkspaceError ? error : new BuildError(String(error));
   }
 
-  const resolved = await installLockedPackages(workspaceRoot);
+  const resolved = await installLockedPackages(workspaceRoot, options.offline);
 
   let vendoredPackages: readonly string[] = [];
   if (resolved.lock.packages.length > 0) {
